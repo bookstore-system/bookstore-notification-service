@@ -1,0 +1,12 @@
+### Test REST API Fallback (Gửi Email trực tiếp)
+POST http://localhost:8080/api/notifications/email
+Content-Type: application/json
+
+{
+  "to": "customer@example.com",
+  "subject": "Xác nhận đơn hàng #12345",
+  "message": "Cảm ơn bạn đã mua sắm tại HamTech Bookstore. Đơn hàng của bạn đang được xử lý."
+}
+
+### Test Health Check (Nếu có cài Actuator sau này)
+GET http://localhost:8080/actuator/health
