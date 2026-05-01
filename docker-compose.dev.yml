@@ -176,8 +176,14 @@ services:
     container_name: notification-service
     ports:
       - "8091:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_RABBITMQ_HOST: rabbitmq
     networks:
       - bookstore-network
+    depends_on:
+      rabbitmq:
+        condition: service_started
 
   frontend:
     image: truongikpk/bookstore-frontend:v1.0.0
