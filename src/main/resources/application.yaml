@@ -10,6 +10,11 @@ spring:
 server:
   port: 8080
 
+clients:
+  user-service:
+    # Example: http://user-service:8080 (docker network) or http://localhost:8081 (host)
+    url: ${USER_SERVICE_URL:}
+
 logging:
   level:
     root: INFO

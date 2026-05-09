@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public class OrderEventDto {
     private UUID orderId;
+    private UUID userId;
     private String customerEmail;
     private String customerName;
     private BigDecimal totalPrice;
@@ -28,6 +29,14 @@ public class OrderEventDto {
 
     public void setOrderId(UUID orderId) {
         this.orderId = orderId;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
     }
 
     public String getCustomerEmail() {
@@ -66,6 +75,7 @@ public class OrderEventDto {
     public String toString() {
         return "OrderEventDto{" +
                 "orderId=" + orderId +
+                ", userId=" + userId +
                 ", customerEmail='" + customerEmail + '\'' +
                 ", customerName='" + customerName + '\'' +
                 ", totalPrice=" + totalPrice +

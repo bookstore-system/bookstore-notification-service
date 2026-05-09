@@ -15,7 +15,7 @@ public class NotificationConsumer {
         this.notificationService = notificationService;
     }
 
-    @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE_NAME)
+    @RabbitListener(queues = RabbitMQConfig.ORDER_QUEUE_NAME, containerFactory = "rabbitListenerContainerFactory")
     public void handleOrderEvent(OrderEventDto orderEvent) {
         notificationService.sendOrderNotification(orderEvent);
     }
