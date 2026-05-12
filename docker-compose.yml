@@ -12,9 +12,17 @@ services:
       - .:/app
       - ~/.m2:/root/.m2
     command: mvn spring-boot:run -Dspring-boot.run.profiles=docker
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_RABBITMQ_HOST: rabbitmq
+      USER_SERVICE_URL: "${USER_SERVICE_URL:-http://user-service:8080}"
+      SPRING_MAIL_HOST: "${SPRING_MAIL_HOST:-smtp.gmail.com}"
+      SPRING_MAIL_PORT: "${SPRING_MAIL_PORT:-587}"
+      SPRING_MAIL_USERNAME: "${SPRING_MAIL_USERNAME:-}"
+      SPRING_MAIL_PASSWORD: "${SPRING_MAIL_PASSWORD:-}"
+      NOTIFICATION_MAIL_FROM: "${NOTIFICATION_MAIL_FROM:-${SPRING_MAIL_USERNAME:-no-reply@notfound.local}}"
     networks:
       - bookstore-network
 
