@@ -1,0 +1,22 @@
+# Profile `docker` (docker-compose): bật SMTP từ biến môi trường (.env / compose).
+spring:
+  mail:
+    host: ${SPRING_MAIL_HOST}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
+
+notification:
+  mail:
+    from: ${NOTIFICATION_MAIL_FROM:${SPRING_MAIL_USERNAME}}

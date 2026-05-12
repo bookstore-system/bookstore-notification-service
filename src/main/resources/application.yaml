@@ -1,3 +1,7 @@
+# Swagger UI (SpringDoc 2.6 + Spring Boot 3.3.x):
+#   - Local:  http://localhost:8080/swagger-ui/index.html
+#   - Docker: http://localhost:8091/swagger-ui/index.html
+# OpenAPI JSON: /v3/api-docs
 spring:
   application:
     name: bookstore-notification-service
@@ -10,14 +14,29 @@ spring:
 server:
   port: 8080
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+
 clients:
   user-service:
     # Example: http://user-service:8080 (docker network) or http://localhost:8081 (host)
     url: ${USER_SERVICE_URL:}
 
+# Chỉ dùng khi profile có cấu hình spring.mail.* (vd. `docker` — xem application-docker.yaml)
+notification:
+  mail:
+    from: ${NOTIFICATION_MAIL_FROM:${spring.mail.username:no-reply@localhost}}
+
 logging:
   level:
     root: INFO
-    com.hamtech.bookstorenotificationservice: DEBUG
+    com.notfound.bookstorenotificationservice: DEBUG
+    # DevTools in INFO hay in dòng “consider setting logging.level.web…” — chỉnh WARN để console Docker gọn hơn
+    org.springframework.boot.devtools.env.DevToolsPropertyDefaultsPostProcessor: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
