@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Secrets / local env — KHÔNG được commit
+.env
+.env.local
+*.env
