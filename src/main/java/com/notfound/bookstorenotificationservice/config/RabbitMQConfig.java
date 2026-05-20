@@ -2,29 +2,64 @@ package com.notfound.bookstorenotificationservice.config;
 
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.interceptor.RetryOperationsInterceptor;
 
 @Configuration
 public class RabbitMQConfig {
 
     public static final String EXCHANGE_NAME = "bookstore.events";
+
+    public static final String SAGA_EVENTS_QUEUE_NAME = "notification.events.queue";
+    public static final String SAGA_EVENTS_DLQ_NAME = "notification.events.dlq";
+
     public static final String ORDER_QUEUE_NAME = "notification.order_events";
     public static final String PAYMENT_QUEUE_NAME = "notification.payment_events";
     public static final String USER_QUEUE_NAME = "notification.password_reset_events";
-    public static final String ORDER_ROUTING_KEY = "order.#";
-    public static final String PAYMENT_ROUTING_KEY = "payment.#";
-    /** Chỉ nhận sự kiện đặt lại MK — tránh trùng JSON với các sự kiện user.* khác. */
+
+    public static final String ORDER_CREATED_ROUTING_KEY = "order.created";
+    public static final String ORDER_CONFIRMED_ROUTING_KEY = "order.confirmed";
     public static final String PASSWORD_RESET_ROUTING_KEY = "user.password_reset";
+    public static final String PAYMENT_FAILED_ROUTING_KEY = "payment.failed";
+
+    @Value("${notification.rabbit.retry.max-attempts:3}")
+    private int sagaRetryMaxAttempts;
+
+    @Value("${notification.rabbit.retry.initial-interval-ms:2000}")
+    private long sagaRetryInitialIntervalMs;
+
+    @Value("${notification.rabbit.retry.multiplier:2.0}")
+    private double sagaRetryMultiplier;
+
+    @Value("${notification.rabbit.retry.max-interval-ms:10000}")
+    private long sagaRetryMaxIntervalMs;
 
     @Bean
     public TopicExchange bookstoreExchange() {
         return new TopicExchange(EXCHANGE_NAME);
+    }
+
+    @Bean
+    public Queue sagaEventsQueue() {
+        return QueueBuilder.durable(SAGA_EVENTS_QUEUE_NAME)
+                .withArgument("x-dead-letter-exchange", "")
+                .withArgument("x-dead-letter-routing-key", SAGA_EVENTS_DLQ_NAME)
+                .build();
+    }
+
+    @Bean
+    public Queue sagaEventsDlq() {
+        return new Queue(SAGA_EVENTS_DLQ_NAME, true);
     }
 
     @Bean
@@ -43,13 +78,38 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding orderBinding(Queue orderQueue, TopicExchange bookstoreExchange) {
-        return BindingBuilder.bind(orderQueue).to(bookstoreExchange).with(ORDER_ROUTING_KEY);
+    public Binding sagaCheckoutCompletedBinding(Queue sagaEventsQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(sagaEventsQueue).to(bookstoreExchange).with(SagaEventTypes.CHECKOUT_COMPLETED);
     }
 
     @Bean
-    public Binding paymentBinding(Queue paymentQueue, TopicExchange bookstoreExchange) {
-        return BindingBuilder.bind(paymentQueue).to(bookstoreExchange).with(PAYMENT_ROUTING_KEY);
+    public Binding sagaCheckoutFailedBinding(Queue sagaEventsQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(sagaEventsQueue).to(bookstoreExchange).with(SagaEventTypes.CHECKOUT_FAILED);
+    }
+
+    @Bean
+    public Binding sagaPaymentCompletedBinding(Queue sagaEventsQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(sagaEventsQueue).to(bookstoreExchange).with(SagaEventTypes.PAYMENT_COMPLETED);
+    }
+
+    @Bean
+    public Binding sagaOrderCancelledBinding(Queue sagaEventsQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(sagaEventsQueue).to(bookstoreExchange).with(SagaEventTypes.ORDER_CANCELLED);
+    }
+
+    @Bean
+    public Binding orderCreatedBinding(Queue orderQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(orderQueue).to(bookstoreExchange).with(ORDER_CREATED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding orderConfirmedBinding(Queue orderQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(orderQueue).to(bookstoreExchange).with(ORDER_CONFIRMED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding paymentFailedBinding(Queue paymentQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(paymentQueue).to(bookstoreExchange).with(PAYMENT_FAILED_ROUTING_KEY);
     }
 
     @Bean
@@ -73,6 +133,29 @@ public class RabbitMQConfig {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(messageConverter);
+        return factory;
+    }
+
+    @Bean
+    public RetryOperationsInterceptor sagaRetryInterceptor() {
+        return RetryInterceptorBuilder.stateless()
+                .maxAttempts(sagaRetryMaxAttempts)
+                .backOffOptions(sagaRetryInitialIntervalMs, sagaRetryMultiplier, sagaRetryMaxIntervalMs)
+                .recoverer(new RejectAndDontRequeueRecoverer())
+                .build();
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory sagaRabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory,
+            MessageConverter messageConverter,
+            RetryOperationsInterceptor sagaRetryInterceptor
+    ) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(messageConverter);
+        factory.setAdviceChain(sagaRetryInterceptor);
+        factory.setDefaultRequeueRejected(false);
         return factory;
     }
 }

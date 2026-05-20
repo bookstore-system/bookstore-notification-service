@@ -31,6 +31,12 @@ clients:
 notification:
   mail:
     from: ${NOTIFICATION_MAIL_FROM:${spring.mail.username:no-reply@localhost}}
+  rabbit:
+    retry:
+      max-attempts: 3
+      initial-interval-ms: 2000
+      multiplier: 2.0
+      max-interval-ms: 10000
 
 logging:
   level:
