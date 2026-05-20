@@ -191,6 +191,161 @@ public final class BookstoreNotificationHtmlBuilder {
     /**
      * @param resetLinkHref liên kết đặt lại (đưa vào thuộc tính {@code href}, đã escape HTML)
      */
+    public static String buildCheckoutCompletedBody(
+            String customerName,
+            String sagaId,
+            String orderId,
+            String totalPrice) {
+        return buildSagaStatusBody(
+                customerName,
+                "Cảm ơn bạn đã đặt hàng tại NotFound Bookstore. Đơn hàng đã được xử lý thành công và đang được chuẩn bị.",
+                sagaId,
+                orderId,
+                "Hoàn tất",
+                totalPrice != null ? "Tổng thanh toán: " + totalPrice : null,
+                "#15803d");
+    }
+
+    public static String buildCheckoutFailedBody(
+            String customerName,
+            String sagaId,
+            String orderId,
+            String failureReason) {
+        String reasonLine = failureReason != null && !failureReason.isBlank()
+                ? "Lý do: " + failureReason
+                : "Vui lòng thử lại sau hoặc chọn sách khác.";
+        return buildSagaStatusBody(
+                customerName,
+                "Rất tiếc, quá trình thanh toán / đặt hàng chưa hoàn tất.",
+                sagaId,
+                orderId,
+                "Thất bại",
+                reasonLine,
+                "#b91c1c");
+    }
+
+    public static String buildPaymentCompletedSagaBody(
+            String customerName,
+            String sagaId,
+            String orderId,
+            String paymentId,
+            String amount,
+            String currency,
+            String paymentMethod) {
+        String name = customerName != null && !customerName.isBlank() ? customerName : "Quý khách";
+        String safeName = escapeHtmlUtf8(name);
+        String methodRow = paymentMethod != null && !paymentMethod.isBlank()
+                ? row("Phương thức", escapeHtmlUtf8(paymentMethod))
+                : "";
+        return """
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;">Xin chào <strong style="color:#1c1917;">__NAME__</strong>,</p>
+                <p style="margin:0 0 16px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#44403c;">Thanh toán của bạn đã được ghi nhận thành công.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;border-collapse:separate;border-spacing:0;background:#fffef9;border-radius:8px;border:1px solid #d6d3d1;font-family:__FONT_UI__;">
+                  __SAGA_ROW__
+                  __ORDER_ROW__
+                  __PAYMENT_ROW__
+                  __AMOUNT_ROW__
+                  __METHOD_ROW__
+                </table>
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__NAME__", safeName)
+                .replace("__SAGA_ROW__", rowFirst("Mã checkout (saga)", escapeHtmlUtf8(sagaId != null ? sagaId : "—")))
+                .replace("__ORDER_ROW__", row("Mã đơn", escapeHtmlUtf8(orderId != null ? orderId : "—")))
+                .replace("__PAYMENT_ROW__", row("Mã giao dịch", escapeHtmlUtf8(paymentId != null ? paymentId : "—")))
+                .replace(
+                        "__AMOUNT_ROW__",
+                        row(
+                                "Số tiền",
+                                escapeHtmlUtf8(amount != null ? amount : "—")
+                                        + " "
+                                        + escapeHtmlUtf8(currency != null && !currency.isBlank() ? currency : "VND")))
+                .replace("__METHOD_ROW__", methodRow);
+    }
+
+    public static String buildOrderCancelledBody(
+            String customerName,
+            String sagaId,
+            String orderId,
+            String reason) {
+        String detail = reason != null && !reason.isBlank()
+                ? reason
+                : "Đơn hàng đã được hủy theo yêu cầu hệ thống hoặc do lỗi xử lý.";
+        return buildSagaStatusBody(
+                customerName,
+                "Đơn hàng của bạn đã được hủy.",
+                sagaId,
+                orderId,
+                "Đã hủy",
+                detail,
+                "#b45309");
+    }
+
+    private static String buildSagaStatusBody(
+            String customerName,
+            String intro,
+            String sagaId,
+            String orderId,
+            String statusLabel,
+            String extraLine,
+            String statusColor) {
+        String name = customerName != null && !customerName.isBlank() ? customerName : "Quý khách";
+        String extra = extraLine != null && !extraLine.isBlank()
+                ? "<p style=\"margin:14px 0 0 0;font-size:15px;color:#44403c;font-family:"
+                        + FONT_UI
+                        + ";\">"
+                        + escapeHtmlUtf8(extraLine)
+                        + "</p>"
+                : "";
+        return """
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;">Xin chào <strong style="color:#1c1917;">__NAME__</strong>,</p>
+                <p style="margin:0 0 16px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#44403c;">__INTRO__</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%%;border-collapse:separate;border-spacing:0;background:#fffef9;border-radius:8px;border:1px solid #d6d3d1;font-family:__FONT_UI__;">
+                  __SAGA_ROW__
+                  __ORDER_ROW__
+                  <tr>
+                    <td style="padding:14px 16px;border-top:1px solid #e7e5e4;font-size:13px;font-weight:700;color:#57534e;">Trạng thái</td>
+                    <td style="padding:14px 16px;border-top:1px solid #e7e5e4;font-size:15px;color:__STATUS_COLOR__;text-align:right;font-weight:800;">__STATUS__</td>
+                  </tr>
+                </table>
+                __EXTRA__
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__NAME__", escapeHtmlUtf8(name))
+                .replace("__INTRO__", escapeHtmlUtf8(intro))
+                .replace("__SAGA_ROW__", rowFirst("Mã checkout (saga)", escapeHtmlUtf8(sagaId != null ? sagaId : "—")))
+                .replace("__ORDER_ROW__", row("Mã đơn", escapeHtmlUtf8(orderId != null ? orderId : "—")))
+                .replace("__STATUS_COLOR__", statusColor)
+                .replace("__STATUS__", escapeHtmlUtf8(statusLabel))
+                .replace("__EXTRA__", extra);
+    }
+
+    private static String rowFirst(String label, String valueHtml) {
+        return """
+                <tr>
+                  <td style="padding:14px 16px;font-size:13px;font-weight:700;color:#57534e;font-family:__FONT_UI__;">__LABEL__</td>
+                  <td style="padding:14px 16px;font-size:13px;color:#1c1917;text-align:right;font-family:__FONT_MONO__;font-weight:600;">__VALUE__</td>
+                </tr>
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__FONT_MONO__", FONT_MONO)
+                .replace("__LABEL__", escapeHtmlUtf8(label))
+                .replace("__VALUE__", valueHtml);
+    }
+
+    private static String row(String label, String valueHtml) {
+        return """
+                <tr>
+                  <td style="padding:14px 16px;border-top:1px solid #e7e5e4;font-size:13px;font-weight:700;color:#57534e;font-family:__FONT_UI__;">__LABEL__</td>
+                  <td style="padding:14px 16px;border-top:1px solid #e7e5e4;font-size:13px;color:#1c1917;text-align:right;font-family:__FONT_MONO__;font-weight:600;">__VALUE__</td>
+                </tr>
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__FONT_MONO__", FONT_MONO)
+                .replace("__LABEL__", escapeHtmlUtf8(label))
+                .replace("__VALUE__", valueHtml);
+    }
+
     public static String buildPasswordResetBody(String displayName, String resetLinkHref, int expiresInMinutes) {
         String name = displayName != null && !displayName.isBlank() ? displayName : "Quý khách";
         String safeName = escapeHtmlUtf8(name);
