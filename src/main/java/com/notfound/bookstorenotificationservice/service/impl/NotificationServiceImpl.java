@@ -2,6 +2,9 @@ package com.notfound.bookstorenotificationservice.service.impl;
 
 import com.notfound.bookstorenotificationservice.client.UserContactInfoResponse;
 import com.notfound.bookstorenotificationservice.client.UserServiceClient;
+import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
+import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
+import com.notfound.bookstorenotificationservice.model.dto.CheckoutNotificationPayload;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationRequestDto;
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetEventDto;
@@ -58,7 +61,7 @@ public class NotificationServiceImpl implements NotificationService {
                 orderEvent.getStatus());
         logger.debug("Bookstore order notification HTML:\n{}", html);
 
-        sendHtmlEmail(email, subject, html);
+        sendHtmlEmail(email, subject, html, null, orderEvent.getOrderId());
     }
 
     @Override
@@ -90,7 +93,7 @@ public class NotificationServiceImpl implements NotificationService {
         logger.info("Payment notification for {} (HTML {} chars). status={}", email, html.length(), paymentEvent.getStatus());
         logger.debug("Bookstore payment notification HTML:\n{}", html);
 
-        sendHtmlEmail(email, subject, html);
+        sendHtmlEmail(email, subject, html, null, paymentEvent.getOrderId());
     }
 
     @Override
@@ -115,7 +118,83 @@ public class NotificationServiceImpl implements NotificationService {
                 email, html.length(), expires);
         logger.debug("Bookstore password-reset notification HTML:\n{}", html);
 
-        sendHtmlEmail(email, subject, html);
+        sendHtmlEmail(email, subject, html, null, null);
+    }
+
+    @Override
+    public void sendSagaCheckoutNotification(String eventType, CheckoutNotificationPayload payload) {
+        UUID sagaId = payload.getSagaId();
+        UUID orderId = payload.getOrderId();
+        logger.info(
+                "Processing saga notification: eventType={}, sagaId={}, orderId={}, userId={}",
+                eventType,
+                sagaId,
+                orderId,
+                payload.getUserId());
+
+        String email = resolveRecipientEmail(payload.getCustomerEmail(), payload.getUserId());
+        String customerName = payload.getCustomerName();
+        String sagaIdStr = sagaId != null ? sagaId.toString() : null;
+        String orderIdStr = orderId != null ? orderId.toString() : null;
+
+        String normalizedType = eventType != null ? eventType.trim() : "";
+        String inner;
+        String subject;
+
+        switch (normalizedType) {
+            case SagaEventTypes.CHECKOUT_COMPLETED -> {
+                String totalStr = payload.getTotalPrice() != null ? payload.getTotalPrice().toPlainString() : null;
+                inner = BookstoreNotificationHtmlBuilder.buildCheckoutCompletedBody(
+                        customerName, sagaIdStr, orderIdStr, totalStr);
+                subject = "Đặt hàng thành công" + orderSuffix(orderIdStr);
+            }
+            case SagaEventTypes.CHECKOUT_FAILED -> {
+                inner = BookstoreNotificationHtmlBuilder.buildCheckoutFailedBody(
+                        customerName, sagaIdStr, orderIdStr, payload.getFailureReason());
+                subject = "Checkout thất bại" + orderSuffix(orderIdStr);
+            }
+            case SagaEventTypes.PAYMENT_COMPLETED -> {
+                String amountStr = payload.getAmount() != null ? payload.getAmount().toPlainString() : null;
+                String currency = payload.getCurrency() != null && !payload.getCurrency().isBlank()
+                        ? payload.getCurrency()
+                        : "VND";
+                String paymentIdStr =
+                        payload.getPaymentId() != null ? payload.getPaymentId().toString() : null;
+                inner = BookstoreNotificationHtmlBuilder.buildPaymentCompletedSagaBody(
+                        customerName,
+                        sagaIdStr,
+                        orderIdStr,
+                        paymentIdStr,
+                        amountStr,
+                        currency,
+                        payload.getPaymentMethod());
+                subject = "Thanh toán thành công" + orderSuffix(orderIdStr);
+            }
+            case SagaEventTypes.ORDER_CANCELLED -> {
+                String reason = payload.getFailureReason() != null
+                        ? payload.getFailureReason()
+                        : payload.getStatus();
+                inner = BookstoreNotificationHtmlBuilder.buildOrderCancelledBody(
+                        customerName, sagaIdStr, orderIdStr, reason);
+                subject = "Đơn hàng đã bị hủy" + orderSuffix(orderIdStr);
+            }
+            default -> {
+                logger.warn(
+                        "Unknown saga event type={}, sagaId={}, orderId={} — skipping email",
+                        eventType,
+                        sagaId,
+                        orderId);
+                return;
+            }
+        }
+
+        String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
+        logger.debug("Saga notification HTML prepared: sagaId={}, orderId={}, subject={}", sagaId, orderId, subject);
+        sendHtmlEmail(email, subject, html, sagaId, orderId);
+    }
+
+    private static String orderSuffix(String orderIdStr) {
+        return orderIdStr != null ? " — đơn #" + orderIdStr : "";
     }
 
     @Override
@@ -127,7 +206,7 @@ public class NotificationServiceImpl implements NotificationService {
         logger.info("Subject: {}. HTML email prepared ({} chars).", subject, html.length());
         logger.debug("Bookstore fallback notification HTML:\n{}", html);
 
-        sendHtmlEmail(request.getTo(), subject, html);
+        sendHtmlEmail(request.getTo(), subject, html, null, null);
     }
 
     private String resolveRecipientEmail(String directEmail, UUID userId) {
@@ -158,17 +237,21 @@ public class NotificationServiceImpl implements NotificationService {
                 .replace(">", "&gt;");
     }
 
-    private void sendHtmlEmail(String to, String subject, String htmlBody) {
+    private void sendHtmlEmail(String to, String subject, String htmlBody, UUID sagaId, UUID orderId) {
         if (javaMailSender == null) {
-            logger.warn("Không gửi được email: chưa cấu hình JavaMailSender (bật profile `docker` + SPRING_MAIL_* trong .env).");
+            logger.warn(
+                    "Không gửi được email: chưa cấu hình JavaMailSender (sagaId={}, orderId={}).",
+                    sagaId,
+                    orderId);
             return;
         }
         if (!StringUtils.hasText(to)) {
-            logger.warn("Không gửi email: thiếu địa chỉ người nhận (to).");
+            logger.warn("Không gửi email: thiếu địa chỉ người nhận (sagaId={}, orderId={}).", sagaId, orderId);
             return;
         }
         if (!StringUtils.hasText(mailFrom)) {
-            logger.warn("Không gửi email: thiếu notification.mail.from (hoặc spring.mail.username).");
+            logger.warn(
+                    "Không gửi email: thiếu notification.mail.from (sagaId={}, orderId={}).", sagaId, orderId);
             return;
         }
         try {
@@ -179,11 +262,24 @@ public class NotificationServiceImpl implements NotificationService {
             helper.setSubject(subject != null ? subject : "Thông báo");
             helper.setText(htmlBody, true);
             javaMailSender.send(message);
-            logger.info("Đã gửi email HTML tới {}", to);
+            logger.info("Đã gửi email HTML tới {} (sagaId={}, orderId={})", to, sagaId, orderId);
         } catch (MessagingException e) {
-            logger.error("Lỗi tạo email gửi tới {}: {}", to, e.getMessage());
+            logger.error(
+                    "Lỗi tạo email gửi tới {} (sagaId={}, orderId={}): {}",
+                    to,
+                    sagaId,
+                    orderId,
+                    e.getMessage());
+            throw new NotificationDeliveryException("Failed to build email", e);
         } catch (org.springframework.mail.MailException e) {
-            logger.error("Lỗi SMTP gửi tới {}: {}", to, e.getMessage(), e);
+            logger.error(
+                    "Lỗi SMTP gửi tới {} (sagaId={}, orderId={}): {}",
+                    to,
+                    sagaId,
+                    orderId,
+                    e.getMessage(),
+                    e);
+            throw new NotificationDeliveryException("Failed to send email", e);
         }
     }
 }
