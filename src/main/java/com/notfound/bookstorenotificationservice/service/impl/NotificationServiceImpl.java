@@ -1,25 +1,19 @@
 package com.notfound.bookstorenotificationservice.service.impl;
 
 import com.notfound.bookstorenotificationservice.client.UserContactInfoResponse;
-import com.notfound.bookstorenotificationservice.client.UserServiceClient;
-import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
+import com.notfound.bookstorenotificationservice.client.UserContactResolver;
 import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
 import com.notfound.bookstorenotificationservice.model.dto.CheckoutNotificationPayload;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationRequestDto;
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetEventDto;
 import com.notfound.bookstorenotificationservice.model.dto.PaymentEventDto;
+import com.notfound.bookstorenotificationservice.service.MailDeliveryService;
 import com.notfound.bookstorenotificationservice.service.NotificationService;
 import com.notfound.bookstorenotificationservice.util.BookstoreNotificationHtmlBuilder;
 import java.util.UUID;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -27,17 +21,14 @@ import org.springframework.util.StringUtils;
 public class NotificationServiceImpl implements NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
-    private final UserServiceClient userServiceClient;
-    private final JavaMailSender javaMailSender;
-    private final String mailFrom;
+    private final UserContactResolver userContactResolver;
+    private final MailDeliveryService mailDeliveryService;
 
     public NotificationServiceImpl(
-            UserServiceClient userServiceClient,
-            @Autowired(required = false) JavaMailSender javaMailSender,
-            @Value("${notification.mail.from:no-reply@localhost}") String mailFrom) {
-        this.userServiceClient = userServiceClient;
-        this.javaMailSender = javaMailSender;
-        this.mailFrom = mailFrom;
+            UserContactResolver userContactResolver,
+            MailDeliveryService mailDeliveryService) {
+        this.userContactResolver = userContactResolver;
+        this.mailDeliveryService = mailDeliveryService;
     }
 
     @Override
@@ -61,7 +52,7 @@ public class NotificationServiceImpl implements NotificationService {
                 orderEvent.getStatus());
         logger.debug("Bookstore order notification HTML:\n{}", html);
 
-        sendHtmlEmail(email, subject, html, null, orderEvent.getOrderId());
+        mailDeliveryService.sendHtmlEmail(email, subject, html, null, orderEvent.getOrderId());
     }
 
     @Override
@@ -93,7 +84,7 @@ public class NotificationServiceImpl implements NotificationService {
         logger.info("Payment notification for {} (HTML {} chars). status={}", email, html.length(), paymentEvent.getStatus());
         logger.debug("Bookstore payment notification HTML:\n{}", html);
 
-        sendHtmlEmail(email, subject, html, null, paymentEvent.getOrderId());
+        mailDeliveryService.sendHtmlEmail(email, subject, html, null, paymentEvent.getOrderId());
     }
 
     @Override
@@ -118,7 +109,7 @@ public class NotificationServiceImpl implements NotificationService {
                 email, html.length(), expires);
         logger.debug("Bookstore password-reset notification HTML:\n{}", html);
 
-        sendHtmlEmail(email, subject, html, null, null);
+        mailDeliveryService.sendHtmlEmail(email, subject, html, null, null);
     }
 
     @Override
@@ -190,7 +181,7 @@ public class NotificationServiceImpl implements NotificationService {
 
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
         logger.debug("Saga notification HTML prepared: sagaId={}, orderId={}, subject={}", sagaId, orderId, subject);
-        sendHtmlEmail(email, subject, html, sagaId, orderId);
+        mailDeliveryService.sendHtmlEmail(email, subject, html, sagaId, orderId);
     }
 
     private static String orderSuffix(String orderIdStr) {
@@ -206,7 +197,7 @@ public class NotificationServiceImpl implements NotificationService {
         logger.info("Subject: {}. HTML email prepared ({} chars).", subject, html.length());
         logger.debug("Bookstore fallback notification HTML:\n{}", html);
 
-        sendHtmlEmail(request.getTo(), subject, html, null, null);
+        mailDeliveryService.sendHtmlEmail(request.getTo(), subject, html, null, null);
     }
 
     private String resolveRecipientEmail(String directEmail, UUID userId) {
@@ -214,13 +205,13 @@ public class NotificationServiceImpl implements NotificationService {
             return directEmail.trim();
         }
         if (userId != null) {
-            UserContactInfoResponse contactInfo = userServiceClient.getUserContactInfo(userId);
+            UserContactInfoResponse contactInfo = userContactResolver.resolveContact(userId);
             logger.info("Fetched contact-info from user-service. userId={}, email={}, phoneNumber={}, deviceToken={}",
-                    contactInfo.getUserId(),
-                    contactInfo.getEmail(),
-                    contactInfo.getPhoneNumber(),
-                    contactInfo.getDeviceToken());
-            return contactInfo.getEmail();
+                    contactInfo != null ? contactInfo.getUserId() : null,
+                    contactInfo != null ? contactInfo.getEmail() : null,
+                    contactInfo != null ? contactInfo.getPhoneNumber() : null,
+                    contactInfo != null ? contactInfo.getDeviceToken() : null);
+            return contactInfo != null ? contactInfo.getEmail() : null;
         }
         return null;
     }
@@ -237,49 +228,4 @@ public class NotificationServiceImpl implements NotificationService {
                 .replace(">", "&gt;");
     }
 
-    private void sendHtmlEmail(String to, String subject, String htmlBody, UUID sagaId, UUID orderId) {
-        if (javaMailSender == null) {
-            logger.warn(
-                    "Không gửi được email: chưa cấu hình JavaMailSender (sagaId={}, orderId={}).",
-                    sagaId,
-                    orderId);
-            return;
-        }
-        if (!StringUtils.hasText(to)) {
-            logger.warn("Không gửi email: thiếu địa chỉ người nhận (sagaId={}, orderId={}).", sagaId, orderId);
-            return;
-        }
-        if (!StringUtils.hasText(mailFrom)) {
-            logger.warn(
-                    "Không gửi email: thiếu notification.mail.from (sagaId={}, orderId={}).", sagaId, orderId);
-            return;
-        }
-        try {
-            MimeMessage message = javaMailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(mailFrom);
-            helper.setTo(to.trim());
-            helper.setSubject(subject != null ? subject : "Thông báo");
-            helper.setText(htmlBody, true);
-            javaMailSender.send(message);
-            logger.info("Đã gửi email HTML tới {} (sagaId={}, orderId={})", to, sagaId, orderId);
-        } catch (MessagingException e) {
-            logger.error(
-                    "Lỗi tạo email gửi tới {} (sagaId={}, orderId={}): {}",
-                    to,
-                    sagaId,
-                    orderId,
-                    e.getMessage());
-            throw new NotificationDeliveryException("Failed to build email", e);
-        } catch (org.springframework.mail.MailException e) {
-            logger.error(
-                    "Lỗi SMTP gửi tới {} (sagaId={}, orderId={}): {}",
-                    to,
-                    sagaId,
-                    orderId,
-                    e.getMessage(),
-                    e);
-            throw new NotificationDeliveryException("Failed to send email", e);
-        }
-    }
 }
