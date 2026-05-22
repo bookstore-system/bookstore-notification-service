@@ -5,27 +5,6 @@
 spring:
   application:
     name: bookstore-notification-service
-  rabbitmq:
-    host: ${SPRING_RABBITMQ_HOST:localhost}
-    port: ${SPRING_RABBITMQ_PORT:5672}
-    username: ${SPRING_RABBITMQ_USERNAME:guest}
-    password: ${SPRING_RABBITMQ_PASSWORD:guest}
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/bookstore_notification?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:password}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  jpa:
-    hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
-    show-sql: ${SPRING_JPA_SHOW_SQL:false}
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-
-server:
-  port: 8080
 
 springdoc:
   api-docs:
@@ -35,27 +14,11 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
 
-clients:
-  user-service:
-    # Example: http://user-service:8080 (docker network) or http://localhost:8081 (host)
-    url: ${USER_SERVICE_URL:}
-
-# Chỉ dùng khi profile có cấu hình spring.mail.* (vd. `docker` — xem application-docker.yaml)
-notification:
-  mail:
-    from: ${NOTIFICATION_MAIL_FROM:${spring.mail.username:no-reply@localhost}}
-  rabbit:
-    retry:
-      max-attempts: 3
-      initial-interval-ms: 2000
-      multiplier: 2.0
-      max-interval-ms: 10000
 
 logging:
   level:
     root: INFO
     com.notfound.bookstorenotificationservice: DEBUG
-    # DevTools in INFO hay in dòng “consider setting logging.level.web…” — chỉnh WARN để console Docker gọn hơn
     org.springframework.boot.devtools.env.DevToolsPropertyDefaultsPostProcessor: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

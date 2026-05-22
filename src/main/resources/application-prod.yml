@@ -1,0 +1,53 @@
+spring:
+  rabbitmq:
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+  datasource:
+    url: jdbc:mysql://${SPRING_DATASOURCE_HOST:notification-db}:${SPRING_DATASOURCE_PORT:3306}/${SPRING_DATASOURCE_DATABASE:bookstore_notification}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${SPRING_DATASOURCE_USERNAME:bookstore}
+    password: ${SPRING_DATASOURCE_PASSWORD:bookstore}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.MySQLDialect
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
+
+server:
+  port: 8080
+
+clients:
+  user-service:
+    url: ${USER_SERVICE_URL:}
+
+
+notification:
+  mail:
+    from: ${NOTIFICATION_MAIL_FROM:${spring.mail.username:no-reply@localhost}}
+  rabbit:
+    retry:
+      max-attempts: 3
+      initial-interval-ms: 2000
+      multiplier: 2.0
+      max-interval-ms: 10000
