@@ -1,11 +1,13 @@
 package com.notfound.bookstorenotificationservice.model.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
  * Sự kiện thanh toán từ payment-service: cấu trúc khác order — tập trung giao dịch, phương thức, kết quả thanh toán.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PaymentEventDto {
 
     private UUID paymentId;

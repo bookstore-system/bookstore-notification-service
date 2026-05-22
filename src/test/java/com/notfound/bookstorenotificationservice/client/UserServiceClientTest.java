@@ -32,7 +32,9 @@ import static org.assertj.core.api.Assertions.assertThat;
         properties = {
                 "spring.rabbitmq.listener.simple.auto-startup=false",
                 "spring.rabbitmq.host=127.0.0.1",
-                "spring.rabbitmq.port=5672"
+                "spring.rabbitmq.port=5672",
+                "USER_SERVICE_USERNAME=admin",
+                "USER_SERVICE_PASSWORD=admin"
         }
 )
 class UserServiceClientTest {
@@ -65,28 +67,48 @@ class UserServiceClientTest {
     @Test
     void getUserContactInfo_callsCorrectPath_andReadsResponse() throws Exception {
         UUID userId = UUID.fromString("987e6543-e21b-12d3-a456-426614174111");
+        UserServiceAuthResponse authBody = new UserServiceAuthResponse();
+        authBody.setToken("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-login");
+        UserServiceApiResponse<UserServiceAuthResponse> authResponse = new UserServiceApiResponse<>();
+        authResponse.setCode(UserServiceApiResponse.SUCCESS_CODE);
+        authResponse.setMessage("Success");
+        authResponse.setResult(authBody);
 
         UserContactInfoResponse body = new UserContactInfoResponse();
         body.setUserId(userId);
         body.setEmail("user1@example.com");
         body.setPhoneNumber("0900000001");
         body.setDeviceToken("device-token-abc");
+        UserServiceApiResponse<UserContactInfoResponse> response = new UserServiceApiResponse<>();
+        response.setCode(UserServiceApiResponse.SUCCESS_CODE);
+        response.setMessage("Success");
+        response.setResult(body);
 
         mockWebServer.enqueue(new MockResponse()
                 .setResponseCode(200)
                 .addHeader("Content-Type", "application/json")
-                .setBody(objectMapper.writeValueAsString(body)));
+                .setBody(objectMapper.writeValueAsString(authResponse)));
+        mockWebServer.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .addHeader("Content-Type", "application/json")
+                .setBody(objectMapper.writeValueAsString(response)));
 
-        UserContactInfoResponse res = userServiceClient.getUserContactInfo(userId);
+        UserServiceApiResponse<UserContactInfoResponse> res = userServiceClient.getUserContactInfo(userId);
 
         assertThat(res).isNotNull();
-        assertThat(res.getUserId()).isEqualTo(userId);
-        assertThat(res.getEmail()).isEqualTo("user1@example.com");
-        assertThat(res.getPhoneNumber()).isEqualTo("0900000001");
-        assertThat(res.getDeviceToken()).isEqualTo("device-token-abc");
+        assertThat(res.isSuccess()).isTrue();
+        assertThat(res.getResult().getUserId()).isEqualTo(userId);
+        assertThat(res.getResult().getEmail()).isEqualTo("user1@example.com");
+        assertThat(res.getResult().getPhoneNumber()).isEqualTo("0900000001");
+        assertThat(res.getResult().getDeviceToken()).isEqualTo("device-token-abc");
+
+        RecordedRequest loginReq = mockWebServer.takeRequest();
+        assertThat(loginReq.getMethod()).isEqualTo("POST");
+        assertThat(loginReq.getPath()).isEqualTo("/api/v1/auth/login");
 
         RecordedRequest req = mockWebServer.takeRequest();
         assertThat(req.getMethod()).isEqualTo("GET");
         assertThat(req.getPath()).isEqualTo("/api/v1/users/" + userId + "/contact-info");
+        assertThat(req.getHeader("Authorization")).startsWith("Bearer ");
     }
 }
