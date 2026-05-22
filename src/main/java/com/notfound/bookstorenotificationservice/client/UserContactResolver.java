@@ -23,9 +23,9 @@ public class UserContactResolver {
 
     public UserContactInfoResponse resolveContact(UUID userId) {
         try {
-            UserServiceApiResponse<UserContactInfoResponse> response =
+            ApiResponse<UserContactInfoResponse> response =
                     userServiceClient.getUserContactInfo(userId);
-            if (response == null || !response.isSuccess()) {
+            if (response == null || (response.getCode() != 200 && response.getCode() != 1000)) {
                 String message = response != null ? response.getMessage() : "empty response";
                 throw new NotificationDeliveryException(
                         "user-service contact-info failed for userId=" + userId + ": " + message);

@@ -1,6 +1,5 @@
 package com.notfound.bookstorenotificationservice.service.impl;
 
-import com.notfound.bookstorenotificationservice.client.ApiResponse;
 import com.notfound.bookstorenotificationservice.client.UserContactInfoResponse;
 import com.notfound.bookstorenotificationservice.client.UserContactResolver;
 import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
@@ -206,8 +205,7 @@ public class NotificationServiceImpl implements NotificationService {
             return directEmail.trim();
         }
         if (userId != null) {
-            ApiResponse<UserContactInfoResponse> response = userServiceClient.getUserContactInfo(userId);
-            UserContactInfoResponse contactInfo = response != null ? response.getResult() : null;
+            UserContactInfoResponse contactInfo = userContactResolver.resolveContact(userId);
             if (contactInfo == null || !StringUtils.hasText(contactInfo.getEmail())) {
                 logger.warn("Không lấy được contact-info hợp lệ từ user-service. userId={}", userId);
                 return null;
