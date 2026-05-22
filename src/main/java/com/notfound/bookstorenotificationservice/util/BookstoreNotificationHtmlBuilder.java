@@ -1,5 +1,7 @@
 package com.notfound.bookstorenotificationservice.util;
 
+import java.util.Locale;
+
 /**
  * Email HTML: ưu tiên đọc nhanh — tiêu đề trong khối nổi bật, phần chi tiết tách rõ; tông giấy mực / cam đất (nhà sách), tránh layout gradient-pill kiểu template chung.
  */
@@ -344,6 +346,59 @@ public final class BookstoreNotificationHtmlBuilder {
                 .replace("__FONT_MONO__", FONT_MONO)
                 .replace("__LABEL__", escapeHtmlUtf8(label))
                 .replace("__VALUE__", valueHtml);
+    }
+
+    public static String buildPromotionAnnouncementBody(
+            String promotionName,
+            String code,
+            Double discountValue,
+            String description,
+            String startDate,
+            String endDate) {
+        String safeName = escapeHtmlUtf8(
+                promotionName != null && !promotionName.isBlank() ? promotionName : "Khuyến mãi mới");
+        String safeCode = escapeHtmlUtf8(code != null && !code.isBlank() ? code : "PROMO");
+        String safeDiscount = discountValue != null ? escapeHtmlUtf8(formatDiscount(discountValue)) : "Ưu đãi đặc biệt";
+        String safeDescription = description != null && !description.isBlank()
+                ? "<p style=\"margin:14px 0 0 0;font-family:" + FONT_UI
+                        + ";font-size:15px;line-height:1.65;color:#44403c;\">"
+                        + escapeWithLineBreaks(description)
+                        + "</p>"
+                : "";
+        return """
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;letter-spacing:0;">NotFound Bookstore vừa có ưu đãi mới dành cho bạn.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;margin:0;background:#fffef9;border-radius:8px;overflow:hidden;border:1px solid #d6d3d1;font-family:__FONT_UI__;">
+                  <tr>
+                    <td colspan="2" style="padding:16px 16px 14px 16px;background:#fffbeb;border-bottom:1px solid #fcd34d;font-family:__FONT_UI__;">
+                      <p style="margin:0;font-size:19px;font-weight:800;color:#431407;line-height:1.35;">__NAME__</p>
+                    </td>
+                  </tr>
+                  __CODE_ROW__
+                  __DISCOUNT_ROW__
+                  __START_ROW__
+                  __END_ROW__
+                </table>
+                __DESCRIPTION__
+                <p style="margin:16px 0 0 0;font-family:__FONT_UI__;font-size:13px;line-height:1.6;color:#78716c;">Bạn có thể tắt email khuyến mãi trong phần cài đặt tài khoản bất cứ lúc nào.</p>
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__NAME__", safeName)
+                .replace("__CODE_ROW__", row("Mã khuyến mãi", "<span style=\"letter-spacing:0;font-weight:800;\">"
+                        + safeCode + "</span>"))
+                .replace("__DISCOUNT_ROW__", row("Ưu đãi", safeDiscount))
+                .replace("__START_ROW__", row("Bắt đầu", escapeHtmlUtf8(startDate != null ? startDate : "—")))
+                .replace("__END_ROW__", row("Kết thúc", escapeHtmlUtf8(endDate != null ? endDate : "—")))
+                .replace("__DESCRIPTION__", safeDescription);
+    }
+
+    private static String formatDiscount(Double discountValue) {
+        if (discountValue == null) {
+            return "";
+        }
+        if (Math.floor(discountValue) == discountValue) {
+            return String.format(Locale.US, "%.0f%%", discountValue);
+        }
+        return String.format(Locale.US, "%.2f%%", discountValue);
     }
 
     public static String buildPasswordResetBody(String displayName, String resetLinkHref, int expiresInMinutes) {

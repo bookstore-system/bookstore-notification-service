@@ -10,6 +10,7 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.amqp.support.converter.SimpleMessageConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,11 +27,13 @@ public class RabbitMQConfig {
     public static final String ORDER_QUEUE_NAME = "notification.order_events";
     public static final String PAYMENT_QUEUE_NAME = "notification.payment_events";
     public static final String USER_QUEUE_NAME = "notification.password_reset_events";
+    public static final String PROMOTION_CREATED_QUEUE_NAME = "notification.promotion_created";
 
     public static final String ORDER_CREATED_ROUTING_KEY = "order.created";
     public static final String ORDER_CONFIRMED_ROUTING_KEY = "order.confirmed";
     public static final String PASSWORD_RESET_ROUTING_KEY = "user.password_reset";
     public static final String PAYMENT_FAILED_ROUTING_KEY = "payment.failed";
+    public static final String PROMOTION_CREATED_ROUTING_KEY = "promotion.created";
 
     @Value("${notification.rabbit.retry.max-attempts:3}")
     private int sagaRetryMaxAttempts;
@@ -78,6 +81,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue promotionCreatedQueue() {
+        return new Queue(PROMOTION_CREATED_QUEUE_NAME, true);
+    }
+
+    @Bean
     public Binding sagaCheckoutCompletedBinding(Queue sagaEventsQueue, TopicExchange bookstoreExchange) {
         return BindingBuilder.bind(sagaEventsQueue).to(bookstoreExchange).with(SagaEventTypes.CHECKOUT_COMPLETED);
     }
@@ -118,10 +126,16 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Binding promotionCreatedBinding(Queue promotionCreatedQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(promotionCreatedQueue).to(bookstoreExchange).with(PROMOTION_CREATED_ROUTING_KEY);
+    }
+
+    @Bean
     public MessageConverter messageConverter() {
         ObjectMapper mapper = new ObjectMapper()
                 .configure(JsonReadFeature.ALLOW_UNQUOTED_FIELD_NAMES.mappedFeature(), true)
-                .configure(JsonReadFeature.ALLOW_SINGLE_QUOTES.mappedFeature(), true);
+                .configure(JsonReadFeature.ALLOW_SINGLE_QUOTES.mappedFeature(), true)
+                .findAndRegisterModules();
         return new Jackson2JsonMessageConverter(mapper);
     }
 
@@ -137,6 +151,15 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public SimpleRabbitListenerContainerFactory rawRabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(new SimpleMessageConverter());
+        factory.setDefaultRequeueRejected(false);
+        return factory;
+    }
+
+    @Bean
     public RetryOperationsInterceptor sagaRetryInterceptor() {
         return RetryInterceptorBuilder.stateless()
                 .maxAttempts(sagaRetryMaxAttempts)
@@ -148,12 +171,11 @@ public class RabbitMQConfig {
     @Bean
     public SimpleRabbitListenerContainerFactory sagaRabbitListenerContainerFactory(
             ConnectionFactory connectionFactory,
-            MessageConverter messageConverter,
             RetryOperationsInterceptor sagaRetryInterceptor
     ) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(messageConverter);
+        factory.setMessageConverter(new SimpleMessageConverter());
         factory.setAdviceChain(sagaRetryInterceptor);
         factory.setDefaultRequeueRejected(false);
         return factory;
