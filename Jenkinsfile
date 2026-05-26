@@ -58,7 +58,8 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'db-creds', usernameVariable: 'DB_USERNAME', passwordVariable: 'DB_PASSWORD'),
-                    usernamePassword(credentialsId: 'user-service-creds', usernameVariable: 'USER_SERVICE_USERNAME', passwordVariable: 'USER_SERVICE_PASSWORD'),
+                    string(credentialsId: 'user-service-username', variable: 'USER_SERVICE_USERNAME'),
+                    string(credentialsId: 'user-service-creds', variable: 'USER_SERVICE_PASSWORD'),
                     string(credentialsId: 'spring-mail-username', variable: 'SPRING_MAIL_USERNAME'),
                     string(credentialsId: 'spring-mail-password', variable: 'SPRING_MAIL_PASSWORD'),
                     string(credentialsId: 'notification-mail-from', variable: 'NOTIFICATION_MAIL_FROM'),
