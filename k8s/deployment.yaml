@@ -16,10 +16,103 @@ spec:
     spec:
       containers:
       - name: notification-service
-        image: truongikpk/bookstore-notification-service:latest
+        image: truongdocker1/bookstore-notification-service:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "prod"
+          value: "docker"
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_DATASOURCE_URL
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: DB_USERNAME
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: DB_PASSWORD
+        - name: SPRING_RABBITMQ_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_RABBITMQ_HOST
+        - name: SPRING_RABBITMQ_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_RABBITMQ_PORT
+        - name: SPRING_RABBITMQ_USERNAME
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_RABBITMQ_USERNAME
+        - name: SPRING_RABBITMQ_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: SPRING_RABBITMQ_PASSWORD
+        - name: USER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: USER_SERVICE_URL
+        - name: USER_SERVICE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: USER_SERVICE_USERNAME
+        - name: USER_SERVICE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: USER_SERVICE_PASSWORD
+        - name: SPRING_MAIL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_MAIL_HOST
+        - name: SPRING_MAIL_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_MAIL_PORT
+        - name: SPRING_MAIL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: SPRING_MAIL_USERNAME
+        - name: SPRING_MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: SPRING_MAIL_PASSWORD
+        - name: NOTIFICATION_MAIL_FROM
+          valueFrom:
+            secretKeyRef:
+              name: notification-service-secret
+              key: NOTIFICATION_MAIL_FROM
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 10
+          failureThreshold: 6
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
