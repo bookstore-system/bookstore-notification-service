@@ -4,8 +4,9 @@ spring:
     port: ${SPRING_RABBITMQ_PORT:5672}
     username: ${SPRING_RABBITMQ_USERNAME:guest}
     password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    virtual-host: ${SPRING_RABBITMQ_VIRTUAL_HOST:/}
   datasource:
-    url: jdbc:mysql://${SPRING_DATASOURCE_HOST:notification-db}:${SPRING_DATASOURCE_PORT:3306}/${SPRING_DATASOURCE_DATABASE:bookstore_notification}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://${SPRING_DATASOURCE_HOST:notification-db}:${SPRING_DATASOURCE_PORT:3306}/${SPRING_DATASOURCE_DATABASE:bookstore_notification}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:bookstore}
     password: ${SPRING_DATASOURCE_PASSWORD:bookstore}
     driver-class-name: com.mysql.cj.jdbc.Driver
