@@ -1,3 +1,24 @@
+# Swagger UI (SpringDoc 2.6 + Spring Boot 3.3.x):
+#   - Local:  http://localhost:8080/swagger-ui/index.html
+#   - Docker: http://localhost:8091/swagger-ui/index.html
+# OpenAPI JSON: /v3/api-docs
 spring:
   application:
     name: bookstore-notification-service
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+
+logging:
+  level:
+    root: INFO
+    com.notfound.bookstorenotificationservice: DEBUG
+    org.springframework.boot.devtools.env.DevToolsPropertyDefaultsPostProcessor: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

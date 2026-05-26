@@ -1,4 +1,4 @@
-package com.hamtech.bookstorenotificationservice;
+package com.notfound.bookstorenotificationservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

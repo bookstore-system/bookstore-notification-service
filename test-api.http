@@ -1,0 +1,23 @@
+### Swagger UI (Spring Boot 3.3 + SpringDoc 2.6)
+# Local:   http://localhost:8080/swagger-ui/index.html
+# Docker:  http://localhost:8091/swagger-ui/index.html
+
+### Gửi email thật (Docker)
+# Cần profile `docker` + file `.env` có SPRING_MAIL_USERNAME / SPRING_MAIL_PASSWORD (Gmail: dùng App Password, bỏ dấu cách nếu có).
+# Sau khi sửa code: `docker compose up --build` (hoặc restart notification-service).
+
+### OpenAPI JSON
+GET http://localhost:8080/v3/api-docs
+
+### Test REST API Fallback (đúng path /api/v1/...)
+POST http://localhost:8080/api/v1/notifications/email
+Content-Type: application/json
+
+{
+  "to": "customer@example.com",
+  "subject": "Xác nhận đơn hàng #12345",
+  "message": "Cảm ơn bạn đã mua sắm tại NotFound Bookstore. Đơn hàng của bạn đang được xử lý."
+}
+
+### Test Health Check (Nếu có cài Actuator sau này)
+GET http://localhost:8080/actuator/health

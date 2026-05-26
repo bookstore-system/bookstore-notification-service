@@ -1,22 +1,64 @@
 version: '3.8'
 
 services:
+  notification-db:
+    image: mysql:8.0
+    container_name: notification-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: bookstore_notification
+      MYSQL_USER: bookstore
+      MYSQL_PASSWORD: bookstore
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - notification_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - bookstore-network
+
   notification-service:
-    build: 
+    build:
       context: .
       target: build
     container_name: notification-service
     ports:
       - "8091:8080"
     volumes:
-      - .:/build
+      - .:/app
       - ~/.m2:/root/.m2
     command: mvn spring-boot:run -Dspring-boot.run.profiles=docker
+    env_file:
+      - .env
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://notification-db:3306/bookstore_notification?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: bookstore
+      SPRING_DATASOURCE_PASSWORD: bookstore
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DATABASE_PLATFORM: org.hibernate.dialect.MySQLDialect
+      SPRING_RABBITMQ_HOST: rabbitmq
+      USER_SERVICE_URL: "${USER_SERVICE_URL:-http://user-service:8080}"
+      USER_SERVICE_USERNAME: admin
+      USER_SERVICE_PASSWORD: admin
+      SPRING_MAIL_HOST: "${SPRING_MAIL_HOST:-smtp.gmail.com}"
+      SPRING_MAIL_PORT: "${SPRING_MAIL_PORT:-587}"
+      SPRING_MAIL_USERNAME: "${SPRING_MAIL_USERNAME:-}"
+      SPRING_MAIL_PASSWORD: "${SPRING_MAIL_PASSWORD:-}"
+      NOTIFICATION_MAIL_FROM: "${NOTIFICATION_MAIL_FROM:-${SPRING_MAIL_USERNAME:-no-reply@notfound.local}}"
     networks:
       - bookstore-network
+    depends_on:
+      notification-db:
+        condition: service_healthy
 
 networks:
   bookstore-network:
     external: true
+
+volumes:
+  notification_mysql_data:
