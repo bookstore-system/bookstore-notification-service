@@ -53,6 +53,11 @@ spec:
             configMapKeyRef:
               name: notification-service-config
               key: SPRING_RABBITMQ_USERNAME
+        - name: SPRING_RABBITMQ_VIRTUAL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: notification-service-config
+              key: SPRING_RABBITMQ_VIRTUAL_HOST
         - name: SPRING_RABBITMQ_PASSWORD
           valueFrom:
             secretKeyRef:
