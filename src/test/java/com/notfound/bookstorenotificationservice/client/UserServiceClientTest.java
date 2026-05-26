@@ -79,7 +79,7 @@ class UserServiceClientTest {
         body.setEmail("user1@example.com");
         body.setPhoneNumber("0900000001");
         body.setDeviceToken("device-token-abc");
-        UserServiceApiResponse<UserContactInfoResponse> response = new UserServiceApiResponse<>();
+        ApiResponse<UserContactInfoResponse> response = new ApiResponse<>();
         response.setCode(UserServiceApiResponse.SUCCESS_CODE);
         response.setMessage("Success");
         response.setResult(body);
@@ -93,10 +93,10 @@ class UserServiceClientTest {
                 .addHeader("Content-Type", "application/json")
                 .setBody(objectMapper.writeValueAsString(response)));
 
-        UserServiceApiResponse<UserContactInfoResponse> res = userServiceClient.getUserContactInfo(userId);
+        ApiResponse<UserContactInfoResponse> res = userServiceClient.getUserContactInfo(userId);
 
         assertThat(res).isNotNull();
-        assertThat(res.isSuccess()).isTrue();
+        assertThat(res.getCode()).isEqualTo(UserServiceApiResponse.SUCCESS_CODE);
         assertThat(res.getResult().getUserId()).isEqualTo(userId);
         assertThat(res.getResult().getEmail()).isEqualTo("user1@example.com");
         assertThat(res.getResult().getPhoneNumber()).isEqualTo("0900000001");
