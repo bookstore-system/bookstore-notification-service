@@ -63,7 +63,7 @@ pipeline {
                     string(credentialsId: 'spring-mail-username', variable: 'SPRING_MAIL_USERNAME'),
                     string(credentialsId: 'spring-mail-password', variable: 'SPRING_MAIL_PASSWORD'),
                     string(credentialsId: 'notification-mail-from', variable: 'NOTIFICATION_MAIL_FROM'),
-                    string(credentialsId: 'rabbitmq-password', variable: 'SPRING_RABBITMQ_PASSWORD')
+                    usernamePassword(credentialsId: 'rabbitmq-cred', usernameVariable: 'RABBITMQ_USERNAME', passwordVariable: 'SPRING_RABBITMQ_PASSWORD')
                 ]) {
                     sh '''
                 export KUBECONFIG=/var/jenkins_home/.kube/config
