@@ -5,6 +5,22 @@
 spring:
   application:
     name: bookstore-notification-service
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
 
 springdoc:
   api-docs:
@@ -15,6 +31,8 @@ springdoc:
     tags-sorter: alpha
 
 notification:
+  mail:
+    from: ${NOTIFICATION_MAIL_FROM:${spring.mail.username:no-reply@localhost}}
   promotion:
     retry:
       max-attempts: ${NOTIFICATION_PROMOTION_RETRY_MAX_ATTEMPTS:3}

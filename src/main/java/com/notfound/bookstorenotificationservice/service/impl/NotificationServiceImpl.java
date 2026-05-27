@@ -2,6 +2,7 @@ package com.notfound.bookstorenotificationservice.service.impl;
 
 import com.notfound.bookstorenotificationservice.client.UserContactInfoResponse;
 import com.notfound.bookstorenotificationservice.client.UserContactResolver;
+import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
 import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
 import com.notfound.bookstorenotificationservice.model.dto.CheckoutNotificationPayload;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationRequestDto;
@@ -120,7 +121,21 @@ public class NotificationServiceImpl implements NotificationService {
                 email, html.length(), expires);
         logger.debug("Bookstore password-reset notification HTML:\n{}", html);
 
-        mailDeliveryService.sendHtmlEmail(email, subject, html, null, null);
+        try {
+            mailDeliveryService.sendHtmlEmail(email, subject, html, null, null);
+        } catch (NotificationDeliveryException e) {
+            logger.warn(
+                    "Skip password-reset OTP email after delivery failure. eventId={}, email={}, reason={}",
+                    event.getEventId(),
+                    email,
+                    e.getMessage());
+        } catch (RuntimeException e) {
+            logger.warn(
+                    "Skip password-reset OTP email after unexpected delivery failure. eventId={}, email={}",
+                    event.getEventId(),
+                    email,
+                    e);
+        }
     }
 
     @Override
