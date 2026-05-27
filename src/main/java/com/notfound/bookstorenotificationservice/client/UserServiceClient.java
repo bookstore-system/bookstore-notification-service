@@ -8,12 +8,11 @@ import java.util.UUID;
 
 /**
  * Feign client for calling User Service.
- * Configure base URL via `clients.user-service.url`.
+ * Configure base URL via `USER_SERVICE_URL`.
  */
 @FeignClient(
         name = "user-service",
-        url = "${clients.user-service.url:}",
-        configuration = UserServiceFeignConfiguration.class)
+        url = "${USER_SERVICE_URL:}")
 public interface UserServiceClient {
 
     @GetMapping("/api/v1/users/{userId}/contact-info")

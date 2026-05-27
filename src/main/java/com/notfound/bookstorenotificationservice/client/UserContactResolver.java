@@ -14,11 +14,9 @@ public class UserContactResolver {
     private static final Logger logger = LoggerFactory.getLogger(UserContactResolver.class);
 
     private final UserServiceClient userServiceClient;
-    private final UserServiceTokenProvider tokenProvider;
 
-    public UserContactResolver(UserServiceClient userServiceClient, UserServiceTokenProvider tokenProvider) {
+    public UserContactResolver(UserServiceClient userServiceClient) {
         this.userServiceClient = userServiceClient;
-        this.tokenProvider = tokenProvider;
     }
 
     public UserContactInfoResponse resolveContact(UUID userId) {
@@ -36,20 +34,7 @@ public class UserContactResolver {
                 logger.warn("user-service returned no email for userId={}", userId);
             }
             return contactInfo;
-        } catch (FeignException.Unauthorized | FeignException.Forbidden e) {
-            tokenProvider.invalidateCache();
-            throw new NotificationDeliveryException(
-                    "user-service rejected credentials for contact-info (HTTP " + e.status()
-                            + "); check admin/admin service login",
-                    e);
         } catch (FeignException e) {
-            if (e.status() == 401 || e.status() == 403) {
-                tokenProvider.invalidateCache();
-                throw new NotificationDeliveryException(
-                        "user-service rejected credentials for contact-info (HTTP " + e.status()
-                                + "); check admin/admin service login",
-                        e);
-            }
             throw new NotificationDeliveryException(
                     "user-service contact-info failed for userId=" + userId + ": " + e.getMessage(),
                     e);

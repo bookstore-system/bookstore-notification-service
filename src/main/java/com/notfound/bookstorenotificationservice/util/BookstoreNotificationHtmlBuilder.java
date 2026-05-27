@@ -190,9 +190,6 @@ public final class BookstoreNotificationHtmlBuilder {
                 .replace("__METHOD_ROW__", methodRow);
     }
 
-    /**
-     * @param resetLinkHref liên kết đặt lại (đưa vào thuộc tính {@code href}, đã escape HTML)
-     */
     public static String buildCheckoutCompletedBody(
             String customerName,
             String sagaId,
@@ -401,31 +398,66 @@ public final class BookstoreNotificationHtmlBuilder {
         return String.format(Locale.US, "%.2f%%", discountValue);
     }
 
-    public static String buildPasswordResetBody(String displayName, String resetLinkHref, int expiresInMinutes) {
+    public static String buildEmailVerificationBody(
+            String displayName,
+            String verificationUrl,
+            int expiresInMinutes) {
         String name = displayName != null && !displayName.isBlank() ? displayName : "Quý khách";
         String safeName = escapeHtmlUtf8(name);
-        String safeHref = resetLinkHref != null ? resetLinkHref : "";
+        String safeUrl = escapeHtmlUtf8(verificationUrl != null ? verificationUrl : "");
         String expiryText = expiresInMinutes > 0
-                ? "Liên kết có hiệu lực trong khoảng <strong style=\"color:#1c1917;\">"
-                        + escapeHtmlUtf8(String.valueOf(expiresInMinutes))
-                        + "</strong> phút."
-                : "Liên kết chỉ dùng một lần và sẽ hết hạn sớm — vui lòng thao tác ngay.";
+                ? "Liên kết xác thực có hiệu lực trong <strong style=\"color:#1c1917;\">"
+                    + escapeHtmlUtf8(String.valueOf(expiresInMinutes))
+                    + "</strong> phút"
+                    + (expiresInMinutes == 1440 ? " (24 giờ)." : ".")
+                : "Liên kết xác thực sẽ hết hạn sớm.";
         return """
                 <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;letter-spacing:0;">Xin chào <strong style="color:#1c1917;">__NAME__</strong>,</p>
-                <p style="margin:0 0 14px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#44403c;letter-spacing:0;">Bạn (hoặc ai đó) vừa yêu cầu đặt lại mật khẩu cho tài khoản NotFound Bookstore. Nếu đúng là bạn, hãy bấm nút bên dưới.</p>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 20px 0;">
+                <p style="margin:0 0 14px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#44403c;letter-spacing:0;">Bạn vừa đăng ký hoặc yêu cầu xác thực email cho tài khoản Nhà Sách Cộng Đồng.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;margin:18px 0 18px 0;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-family:__FONT_UI__;">
                   <tr>
-                    <td align="center" style="border-radius:8px;background:#c2410c;">
-                      <a href="__HREF__" style="display:inline-block;padding:14px 28px;font-family:__FONT_UI__;font-size:16px;font-weight:800;color:#fffef9;text-decoration:none;letter-spacing:0;">Đặt lại mật khẩu</a>
+                    <td align="center" style="padding:20px 18px 18px 18px;font-family:__FONT_UI__;">
+                      <a href="__URL__" target="_blank" rel="noopener" style="display:inline-block;background:#c2410c;color:#ffffff;text-decoration:none;font-family:__FONT_UI__;font-size:15px;line-height:1.2;font-weight:800;padding:13px 18px;border-radius:6px;">Xác thực email</a>
                     </td>
                   </tr>
                 </table>
                 <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:14px;line-height:1.65;color:#57534e;letter-spacing:0;">__EXPIRY__</p>
-                <p style="margin:0;font-family:__FONT_UI__;font-size:13px;line-height:1.65;color:#78716c;letter-spacing:0;">Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email và mật khẩu vẫn an toàn. Không chia sẻ liên kết này cho người khác.</p>
+                <p style="margin:0 0 8px 0;font-family:__FONT_UI__;font-size:13px;line-height:1.65;color:#78716c;letter-spacing:0;">Nếu nút không hoạt động, hãy mở liên kết này trong trình duyệt:</p>
+                <p style="margin:0;word-break:break-word;font-family:__FONT_UI__;font-size:13px;line-height:1.65;color:#9a3412;letter-spacing:0;"><a href="__URL__" target="_blank" rel="noopener" style="color:#9a3412;text-decoration:underline;">__URL__</a></p>
                 """
                 .replace("__FONT_UI__", FONT_UI)
                 .replace("__NAME__", safeName)
-                .replace("__HREF__", safeHref)
+                .replace("__URL__", safeUrl)
                 .replace("__EXPIRY__", expiryText);
     }
+
+    public static String buildPasswordResetOtpBody(String displayName, String otp, int expiresInMinutes) {
+        String name = displayName != null && !displayName.isBlank() ? displayName : "Quý khách";
+        String safeName = escapeHtmlUtf8(name);
+        String safeOtp = escapeHtmlUtf8(otp != null ? otp : "");
+        String expiryText = expiresInMinutes > 0
+                ? "Mã OTP có hiệu lực trong <strong style=\"color:#1c1917;\">"
+                    + escapeHtmlUtf8(String.valueOf(expiresInMinutes))
+                    + "</strong> phút."
+                : "Mã OTP chỉ dùng một lần và sẽ hết hạn sớm.";
+        return """
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;letter-spacing:0;">Xin chào <strong style="color:#1c1917;">__NAME__</strong>,</p>
+                <p style="margin:0 0 14px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#44403c;letter-spacing:0;">Bạn vừa yêu cầu mã OTP để đặt lại mật khẩu cho tài khoản NotFound Bookstore.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;margin:18px 0 18px 0;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-family:__FONT_UI__;">
+                  <tr>
+                    <td align="center" style="padding:18px 18px 16px 18px;font-family:__FONT_UI__;">
+                      <p style="margin:0 0 8px 0;font-size:13px;font-weight:700;color:#9a3412;letter-spacing:0;">Mã OTP của bạn</p>
+                      <p style="margin:0;font-family:Consolas,'Courier New',monospace;font-size:32px;line-height:1.25;font-weight:800;color:#431407;letter-spacing:6px;">__OTP__</p>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:14px;line-height:1.65;color:#57534e;letter-spacing:0;">__EXPIRY__</p>
+                <p style="margin:0;font-family:__FONT_UI__;font-size:13px;line-height:1.65;color:#78716c;letter-spacing:0;">Nếu bạn không yêu cầu thao tác này, hãy bỏ qua email và mật khẩu vẫn an toàn. Không chia sẻ mã này cho người khác.</p>
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__NAME__", safeName)
+                .replace("__OTP__", safeOtp)
+                .replace("__EXPIRY__", expiryText);
+    }
+
 }

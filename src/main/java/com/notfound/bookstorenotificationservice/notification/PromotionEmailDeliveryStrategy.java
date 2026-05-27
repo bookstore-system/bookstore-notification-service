@@ -2,7 +2,6 @@ package com.notfound.bookstorenotificationservice.notification;
 
 import com.notfound.bookstorenotificationservice.client.UserContactInfoResponse;
 import com.notfound.bookstorenotificationservice.client.UserContactResolver;
-import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
 import com.notfound.bookstorenotificationservice.messaging.PromotionEventTypes;
 import com.notfound.bookstorenotificationservice.model.dto.PromotionCreatedEvent;
 import com.notfound.bookstorenotificationservice.model.enums.NotificationChannel;
@@ -11,12 +10,15 @@ import com.notfound.bookstorenotificationservice.service.NotificationPreferenceS
 import com.notfound.bookstorenotificationservice.util.BookstoreNotificationHtmlBuilder;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.retry.support.RetryTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -30,16 +32,22 @@ public class PromotionEmailDeliveryStrategy implements NotificationDeliveryStrat
     private final NotificationPreferenceService notificationPreferenceService;
     private final UserContactResolver userContactResolver;
     private final MailDeliveryService mailDeliveryService;
+    private final Executor promotionEmailExecutor;
+    private final RetryTemplate promotionEmailRetryTemplate;
     private final int batchSize;
 
     public PromotionEmailDeliveryStrategy(
             NotificationPreferenceService notificationPreferenceService,
             UserContactResolver userContactResolver,
             MailDeliveryService mailDeliveryService,
+            Executor promotionEmailExecutor,
+            @Qualifier("promotionEmailRetryTemplate") RetryTemplate promotionEmailRetryTemplate,
             @Value("${notification.promotion.batch-size:100}") int batchSize) {
         this.notificationPreferenceService = notificationPreferenceService;
         this.userContactResolver = userContactResolver;
         this.mailDeliveryService = mailDeliveryService;
+        this.promotionEmailExecutor = promotionEmailExecutor;
+        this.promotionEmailRetryTemplate = promotionEmailRetryTemplate;
         this.batchSize = batchSize > 0 ? batchSize : 100;
     }
 
@@ -74,44 +82,93 @@ public class PromotionEmailDeliveryStrategy implements NotificationDeliveryStrat
                 formatDate(promotionCreatedEvent.getEndDate()));
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
 
-        int sent = 0;
-        int skipped = 0;
+        try {
+            promotionEmailExecutor.execute(() -> dispatchPromotionEmails(promotionCreatedEvent, subject, html));
+        } catch (RuntimeException e) {
+            logger.warn(
+                    "Promotion email executor rejected fan-out job for promotionId={}, running inline: {}",
+                    promotionCreatedEvent.getPromotionId(),
+                    e.getMessage());
+            dispatchPromotionEmails(promotionCreatedEvent, subject, html);
+        }
+
+        logger.info(
+                "Promotion email fan-out queued. promotionId={}",
+                promotionCreatedEvent.getPromotionId());
+    }
+
+    private String formatDate(java.time.LocalDate date) {
+        return date != null ? DATE_FORMATTER.format(date) : null;
+    }
+
+    private void dispatchPromotionEmails(PromotionCreatedEvent promotionCreatedEvent, String subject, String html) {
+        int queued = 0;
         Pageable pageable = PageRequest.of(0, batchSize);
         Page<UUID> page;
         do {
             page = notificationPreferenceService.findEnabledUserIds(NotificationChannel.PROMOTION_EMAIL, pageable);
             for (UUID userId : page.getContent()) {
+                queued++;
                 try {
-                    UserContactInfoResponse contactInfo = userContactResolver.resolveContact(userId);
-                    String email = contactInfo != null ? contactInfo.getEmail() : null;
-                    if (!StringUtils.hasText(email)) {
-                        skipped++;
-                        logger.warn("Skip promotion email: missing email for userId={}", userId);
-                        continue;
-                    }
-                    mailDeliveryService.sendHtmlEmail(email, subject, html, EMAIL_CONTEXT);
-                    sent++;
-                } catch (NotificationDeliveryException e) {
-                    throw e;
+                    promotionEmailExecutor.execute(
+                            () -> sendPromotionEmailWithRetry(userId, promotionCreatedEvent, subject, html));
                 } catch (RuntimeException e) {
-                    skipped++;
                     logger.warn(
-                            "Skip promotion email for userId={} because delivery failed: {}",
+                            "Promotion email executor rejected user job for userId={} promotionId={}, running inline: {}",
                             userId,
+                            promotionCreatedEvent.getPromotionId(),
                             e.getMessage());
+                    sendPromotionEmailWithRetry(userId, promotionCreatedEvent, subject, html);
                 }
             }
             pageable = page.hasNext() ? page.nextPageable() : pageable;
         } while (page.hasNext());
 
         logger.info(
-                "Promotion email finished. promotionId={}, sent={}, skipped={}",
+                "Promotion email dispatch scheduled. promotionId={}, queuedUsers={}",
                 promotionCreatedEvent.getPromotionId(),
-                sent,
-                skipped);
+                queued);
     }
 
-    private String formatDate(java.time.LocalDate date) {
-        return date != null ? DATE_FORMATTER.format(date) : null;
+    private void sendPromotionEmailWithRetry(
+            UUID userId,
+            PromotionCreatedEvent promotionCreatedEvent,
+            String subject,
+            String html) {
+        promotionEmailRetryTemplate.execute(
+                context -> {
+                    if (context.getRetryCount() > 0) {
+                        logger.info(
+                                "Retrying promotion email. userId={}, promotionId={}, attempt={}",
+                                userId,
+                                promotionCreatedEvent.getPromotionId(),
+                                context.getRetryCount() + 1);
+                    }
+                    sendPromotionEmail(userId, promotionCreatedEvent, subject, html);
+                    return null;
+                },
+                context -> {
+                    Throwable lastError = context.getLastThrowable();
+                    logger.warn(
+                            "Skip promotion email for userId={} promotionId={} after {} attempt(s): {}",
+                            userId,
+                            promotionCreatedEvent.getPromotionId(),
+                            context.getRetryCount(),
+                            lastError != null ? lastError.getMessage() : "unknown error");
+                    return null;
+                });
+    }
+
+    private void sendPromotionEmail(UUID userId, PromotionCreatedEvent promotionCreatedEvent, String subject, String html) {
+        UserContactInfoResponse contactInfo = userContactResolver.resolveContact(userId);
+        String email = contactInfo != null ? contactInfo.getEmail() : null;
+        if (!StringUtils.hasText(email)) {
+            logger.warn(
+                    "Skip promotion email: missing email for userId={} promotionId={}",
+                    userId,
+                    promotionCreatedEvent.getPromotionId());
+            return;
+        }
+        mailDeliveryService.sendHtmlEmail(email, subject, html, EMAIL_CONTEXT);
     }
 }

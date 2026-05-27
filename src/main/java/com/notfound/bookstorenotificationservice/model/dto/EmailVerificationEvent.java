@@ -1,0 +1,99 @@
+package com.notfound.bookstorenotificationservice.model.dto;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class EmailVerificationEvent {
+
+    private UUID eventId;
+    private String type;
+    private LocalDateTime occurredAt;
+    private UUID userId;
+    private String email;
+    private String displayName;
+    private String verificationUrl;
+    private Integer expiresInMinutes;
+
+    public EmailVerificationEvent() {
+    }
+
+    public UUID getEventId() {
+        return eventId;
+    }
+
+    public void setEventId(UUID eventId) {
+        this.eventId = eventId;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public LocalDateTime getOccurredAt() {
+        return occurredAt;
+    }
+
+    public void setOccurredAt(LocalDateTime occurredAt) {
+        this.occurredAt = occurredAt;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getVerificationUrl() {
+        return verificationUrl;
+    }
+
+    public void setVerificationUrl(String verificationUrl) {
+        this.verificationUrl = verificationUrl;
+    }
+
+    public Integer getExpiresInMinutes() {
+        return expiresInMinutes;
+    }
+
+    public void setExpiresInMinutes(Integer expiresInMinutes) {
+        this.expiresInMinutes = expiresInMinutes;
+    }
+
+    @Override
+    public String toString() {
+        return "EmailVerificationEvent{"
+                + "eventId=" + eventId
+                + ", type='" + type + '\''
+                + ", occurredAt=" + occurredAt
+                + ", userId=" + userId
+                + ", email='" + (email != null ? "***" : null) + '\''
+                + ", displayName='" + displayName + '\''
+                + ", verificationUrl=" + (verificationUrl != null ? "[present]" : "null")
+                + ", expiresInMinutes=" + expiresInMinutes
+                + '}';
+    }
+}

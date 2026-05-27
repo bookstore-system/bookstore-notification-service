@@ -2,11 +2,13 @@ package com.notfound.bookstorenotificationservice.service.impl;
 
 import com.notfound.bookstorenotificationservice.client.UserContactInfoResponse;
 import com.notfound.bookstorenotificationservice.client.UserContactResolver;
+import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
 import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
 import com.notfound.bookstorenotificationservice.model.dto.CheckoutNotificationPayload;
+import com.notfound.bookstorenotificationservice.model.dto.EmailVerificationEvent;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationRequestDto;
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
-import com.notfound.bookstorenotificationservice.model.dto.PasswordResetEventDto;
+import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
 import com.notfound.bookstorenotificationservice.model.dto.PaymentEventDto;
 import com.notfound.bookstorenotificationservice.service.MailDeliveryService;
 import com.notfound.bookstorenotificationservice.service.NotificationService;
@@ -21,6 +23,8 @@ import org.springframework.util.StringUtils;
 public class NotificationServiceImpl implements NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
+    private static final String EMAIL_VERIFICATION_SUBJECT =
+            "X\u00e1c th\u1ef1c email t\u00e0i kho\u1ea3n Nh\u00e0 S\u00e1ch C\u1ed9ng \u0110\u1ed3ng";
     private final UserContactResolver userContactResolver;
     private final MailDeliveryService mailDeliveryService;
 
@@ -88,28 +92,106 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void sendPasswordResetNotification(PasswordResetEventDto event) {
-        logger.info("Processing password-reset notification for userId={}", event.getUserId());
-        if (!StringUtils.hasText(event.getResetLink())) {
-            logger.warn("Bỏ qua email đặt lại mật khẩu: thiếu resetLink.");
+    public void sendPasswordResetOtpNotification(PasswordResetOtpEvent event) {
+        if (event == null) {
+            logger.warn("Skip password-reset OTP email: event is null.");
+            return;
+        }
+        logger.info(
+                "Processing password-reset OTP notification. eventId={}, userId={}",
+                event.getEventId(),
+                event.getUserId());
+        if (!StringUtils.hasText(event.getEmail())) {
+            logger.warn("Skip password-reset OTP email: missing email. eventId={}", event.getEventId());
             return;
         }
 
-        String email = resolveRecipientEmail(event.getEmail(), event.getUserId());
+        if (!StringUtils.hasText(event.getOtp())) {
+            logger.warn("Skip password-reset OTP email: missing otp. eventId={}", event.getEventId());
+            return;
+        }
+
+        String email = event.getEmail().trim();
         int expires = event.getExpiresInMinutes() != null && event.getExpiresInMinutes() > 0
                 ? event.getExpiresInMinutes()
-                : 60;
-        String safeHref = escapeForHtmlAttribute(event.getResetLink().trim());
-        String inner = BookstoreNotificationHtmlBuilder.buildPasswordResetBody(
-                event.getDisplayName(), safeHref, expires);
-        String subject = "Đặt lại mật khẩu — NotFound Bookstore";
+                : 5;
+        String inner = BookstoreNotificationHtmlBuilder.buildPasswordResetOtpBody(
+                event.getDisplayName(), event.getOtp().trim(), expires);
+        String subject = "Ma OTP dat lai mat khau - NotFound Bookstore";
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
 
-        logger.info("Password-reset email prepared for {} (HTML {} chars). expiresInMinutes={}",
+        logger.info("Password-reset OTP email prepared for {} (HTML {} chars). expiresInMinutes={}",
                 email, html.length(), expires);
         logger.debug("Bookstore password-reset notification HTML:\n{}", html);
 
-        mailDeliveryService.sendHtmlEmail(email, subject, html, null, null);
+        try {
+            mailDeliveryService.sendHtmlEmail(email, subject, html, null, null);
+        } catch (NotificationDeliveryException e) {
+            logger.warn(
+                    "Skip password-reset OTP email after delivery failure. eventId={}, email={}, reason={}",
+                    event.getEventId(),
+                    email,
+                    e.getMessage());
+        } catch (RuntimeException e) {
+            logger.warn(
+                    "Skip password-reset OTP email after unexpected delivery failure. eventId={}, email={}",
+                    event.getEventId(),
+                    email,
+                    e);
+        }
+    }
+
+    @Override
+    public void sendEmailVerificationNotification(EmailVerificationEvent event) {
+        if (event == null) {
+            logger.warn("Skip email verification email: event is null.");
+            return;
+        }
+        logger.info(
+                "Processing email verification notification. eventId={}, userId={}",
+                event.getEventId(),
+                event.getUserId());
+        if (!StringUtils.hasText(event.getEmail())) {
+            logger.warn("Skip email verification email: missing email. eventId={}", event.getEventId());
+            return;
+        }
+
+        if (!StringUtils.hasText(event.getVerificationUrl())) {
+            logger.warn("Skip email verification email: missing verificationUrl. eventId={}", event.getEventId());
+            return;
+        }
+
+        String email = event.getEmail().trim();
+        String verificationUrl = event.getVerificationUrl().trim();
+        int expires = event.getExpiresInMinutes() != null && event.getExpiresInMinutes() > 0
+                ? event.getExpiresInMinutes()
+                : 1440;
+        String inner = BookstoreNotificationHtmlBuilder.buildEmailVerificationBody(
+                event.getDisplayName(), verificationUrl, expires);
+        String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(EMAIL_VERIFICATION_SUBJECT, inner);
+
+        logger.info(
+                "Email verification email prepared for {} (HTML {} chars). expiresInMinutes={}",
+                email,
+                html.length(),
+                expires);
+        logger.debug("Bookstore email verification notification HTML:\n{}", html);
+
+        try {
+            mailDeliveryService.sendHtmlEmail(email, EMAIL_VERIFICATION_SUBJECT, html, null, null);
+        } catch (NotificationDeliveryException e) {
+            logger.warn(
+                    "Skip email verification email after delivery failure. eventId={}, email={}, reason={}",
+                    event.getEventId(),
+                    email,
+                    e.getMessage());
+        } catch (RuntimeException e) {
+            logger.warn(
+                    "Skip email verification email after unexpected delivery failure. eventId={}, email={}",
+                    event.getEventId(),
+                    email,
+                    e);
+        }
     }
 
     @Override
@@ -218,18 +300,6 @@ public class NotificationServiceImpl implements NotificationService {
             return contactInfo != null ? contactInfo.getEmail() : null;
         }
         return null;
-    }
-
-    /** Giá trị an toàn cho thuộc tính HTML {@code href} (không log ra console). */
-    private static String escapeForHtmlAttribute(String url) {
-        if (url == null) {
-            return "";
-        }
-        return url.replace("&", "&amp;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;");
     }
 
 }
