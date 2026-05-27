@@ -58,7 +58,6 @@ public class MailDeliveryService {
             helper.setSubject(subject != null ? subject : "Thông báo");
             helper.setText(htmlBody, true);
             javaMailSender.send(message);
-            logger.info("Sent HTML email to {} {}", to, logContext);
         } catch (MessagingException e) {
             logger.error(
                     "Failed to build email to {} {}: {}",

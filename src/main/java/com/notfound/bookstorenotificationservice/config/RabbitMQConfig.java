@@ -27,11 +27,13 @@ public class RabbitMQConfig {
     public static final String ORDER_QUEUE_NAME = "notification.order_events";
     public static final String PAYMENT_QUEUE_NAME = "notification.payment_events";
     public static final String USER_QUEUE_NAME = "notification.password_reset_events";
+    public static final String EMAIL_VERIFICATION_QUEUE_NAME = "notification.email_verification_events";
     public static final String PROMOTION_CREATED_QUEUE_NAME = "notification.promotion_created";
 
     public static final String ORDER_CREATED_ROUTING_KEY = "order.created";
     public static final String ORDER_CONFIRMED_ROUTING_KEY = "order.confirmed";
     public static final String PASSWORD_RESET_ROUTING_KEY = "user.password_reset";
+    public static final String EMAIL_VERIFICATION_ROUTING_KEY = "user.email_verification";
     public static final String PAYMENT_FAILED_ROUTING_KEY = "payment.failed";
     public static final String PROMOTION_CREATED_ROUTING_KEY = "promotion.created";
 
@@ -81,6 +83,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue emailVerificationQueue() {
+        return new Queue(EMAIL_VERIFICATION_QUEUE_NAME, true);
+    }
+
+    @Bean
     public Queue promotionCreatedQueue() {
         return new Queue(PROMOTION_CREATED_QUEUE_NAME, true);
     }
@@ -123,6 +130,11 @@ public class RabbitMQConfig {
     @Bean
     public Binding userBinding(Queue userQueue, TopicExchange bookstoreExchange) {
         return BindingBuilder.bind(userQueue).to(bookstoreExchange).with(PASSWORD_RESET_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding emailVerificationBinding(Queue emailVerificationQueue, TopicExchange bookstoreExchange) {
+        return BindingBuilder.bind(emailVerificationQueue).to(bookstoreExchange).with(EMAIL_VERIFICATION_ROUTING_KEY);
     }
 
     @Bean

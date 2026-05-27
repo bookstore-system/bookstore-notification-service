@@ -1,6 +1,6 @@
 package com.notfound.bookstorenotificationservice.controller;
 
-import com.notfound.bookstorenotificationservice.auth.CurrentUserIdResolver;
+import com.notfound.bookstorenotificationservice.exception.MissingCurrentUserException;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationPreferencesResponse;
 import com.notfound.bookstorenotificationservice.model.dto.UpdateNotificationPreferencesRequest;
 import com.notfound.bookstorenotificationservice.service.NotificationPreferenceService;
@@ -18,30 +18,35 @@ import org.springframework.web.bind.annotation.RestController;
 public class NotificationPreferenceController {
 
     private final NotificationPreferenceService notificationPreferenceService;
-    private final CurrentUserIdResolver currentUserIdResolver;
 
-    public NotificationPreferenceController(
-            NotificationPreferenceService notificationPreferenceService,
-            CurrentUserIdResolver currentUserIdResolver) {
+    public NotificationPreferenceController(NotificationPreferenceService notificationPreferenceService) {
         this.notificationPreferenceService = notificationPreferenceService;
-        this.currentUserIdResolver = currentUserIdResolver;
     }
 
     @GetMapping("/me")
     public ResponseEntity<NotificationPreferencesResponse> getMyPreferences(
-            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader) {
-        UUID userId = currentUserIdResolver.resolve(xUserId, authorizationHeader);
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
+        UUID userId = resolveUserId(xUserId);
         return ResponseEntity.ok(notificationPreferenceService.getPreferences(userId));
     }
 
     @PatchMapping("/me")
     public ResponseEntity<NotificationPreferencesResponse> updateMyPreferences(
             @RequestHeader(value = "X-User-Id", required = false) String xUserId,
-            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
             @RequestBody UpdateNotificationPreferencesRequest request) {
-        UUID userId = currentUserIdResolver.resolve(xUserId, authorizationHeader);
+        UUID userId = resolveUserId(xUserId);
         return ResponseEntity.ok(notificationPreferenceService.updatePreferences(userId, request));
+    }
+
+    private UUID resolveUserId(String xUserId) {
+        if (xUserId == null || xUserId.isBlank()) {
+            throw new MissingCurrentUserException("Missing X-User-Id header");
+        }
+        try {
+            return UUID.fromString(xUserId);
+        } catch (IllegalArgumentException e) {
+            throw new MissingCurrentUserException("Invalid X-User-Id header");
+        }
     }
 }
 
