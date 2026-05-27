@@ -54,8 +54,6 @@ public class NotificationServiceImpl implements NotificationService {
                 customerName,
                 orderEvent.getOrderId(),
                 orderEvent.getStatus());
-        logger.debug("Bookstore order notification HTML:\n{}", html);
-
         mailDeliveryService.sendHtmlEmail(email, subject, html, null, orderEvent.getOrderId());
     }
 
@@ -86,7 +84,6 @@ public class NotificationServiceImpl implements NotificationService {
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
 
         logger.info("Payment notification for {} (HTML {} chars). status={}", email, html.length(), paymentEvent.getStatus());
-        logger.debug("Bookstore payment notification HTML:\n{}", html);
 
         mailDeliveryService.sendHtmlEmail(email, subject, html, null, paymentEvent.getOrderId());
     }
@@ -122,8 +119,6 @@ public class NotificationServiceImpl implements NotificationService {
 
         logger.info("Password-reset OTP email prepared for {} (HTML {} chars). expiresInMinutes={}",
                 email, html.length(), expires);
-        logger.debug("Bookstore password-reset notification HTML:\n{}", html);
-
         try {
             mailDeliveryService.sendHtmlEmail(email, subject, html, null, null);
         } catch (NotificationDeliveryException e) {
@@ -175,8 +170,6 @@ public class NotificationServiceImpl implements NotificationService {
                 email,
                 html.length(),
                 expires);
-        logger.debug("Bookstore email verification notification HTML:\n{}", html);
-
         try {
             mailDeliveryService.sendHtmlEmail(email, EMAIL_VERIFICATION_SUBJECT, html, null, null);
         } catch (NotificationDeliveryException e) {
@@ -277,7 +270,6 @@ public class NotificationServiceImpl implements NotificationService {
         String subject = request.getSubject() != null ? request.getSubject() : "Thông báo";
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
         logger.info("Subject: {}. HTML email prepared ({} chars).", subject, html.length());
-        logger.debug("Bookstore fallback notification HTML:\n{}", html);
 
         mailDeliveryService.sendHtmlEmail(request.getTo(), subject, html, null, null);
     }
