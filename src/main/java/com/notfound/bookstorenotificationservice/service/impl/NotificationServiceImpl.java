@@ -6,7 +6,7 @@ import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
 import com.notfound.bookstorenotificationservice.model.dto.CheckoutNotificationPayload;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationRequestDto;
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
-import com.notfound.bookstorenotificationservice.model.dto.PasswordResetEventDto;
+import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
 import com.notfound.bookstorenotificationservice.model.dto.PaymentEventDto;
 import com.notfound.bookstorenotificationservice.service.MailDeliveryService;
 import com.notfound.bookstorenotificationservice.service.NotificationService;
@@ -88,24 +88,35 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void sendPasswordResetNotification(PasswordResetEventDto event) {
-        logger.info("Processing password-reset notification for userId={}", event.getUserId());
-        if (!StringUtils.hasText(event.getResetLink())) {
-            logger.warn("Bỏ qua email đặt lại mật khẩu: thiếu resetLink.");
+    public void sendPasswordResetOtpNotification(PasswordResetOtpEvent event) {
+        if (event == null) {
+            logger.warn("Skip password-reset OTP email: event is null.");
+            return;
+        }
+        logger.info(
+                "Processing password-reset OTP notification. eventId={}, userId={}",
+                event.getEventId(),
+                event.getUserId());
+        if (!StringUtils.hasText(event.getEmail())) {
+            logger.warn("Skip password-reset OTP email: missing email. eventId={}", event.getEventId());
             return;
         }
 
-        String email = resolveRecipientEmail(event.getEmail(), event.getUserId());
+        if (!StringUtils.hasText(event.getOtp())) {
+            logger.warn("Skip password-reset OTP email: missing otp. eventId={}", event.getEventId());
+            return;
+        }
+
+        String email = event.getEmail().trim();
         int expires = event.getExpiresInMinutes() != null && event.getExpiresInMinutes() > 0
                 ? event.getExpiresInMinutes()
-                : 60;
-        String safeHref = escapeForHtmlAttribute(event.getResetLink().trim());
-        String inner = BookstoreNotificationHtmlBuilder.buildPasswordResetBody(
-                event.getDisplayName(), safeHref, expires);
-        String subject = "Đặt lại mật khẩu — NotFound Bookstore";
+                : 5;
+        String inner = BookstoreNotificationHtmlBuilder.buildPasswordResetOtpBody(
+                event.getDisplayName(), event.getOtp().trim(), expires);
+        String subject = "Ma OTP dat lai mat khau - NotFound Bookstore";
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
 
-        logger.info("Password-reset email prepared for {} (HTML {} chars). expiresInMinutes={}",
+        logger.info("Password-reset OTP email prepared for {} (HTML {} chars). expiresInMinutes={}",
                 email, html.length(), expires);
         logger.debug("Bookstore password-reset notification HTML:\n{}", html);
 
@@ -218,18 +229,6 @@ public class NotificationServiceImpl implements NotificationService {
             return contactInfo != null ? contactInfo.getEmail() : null;
         }
         return null;
-    }
-
-    /** Giá trị an toàn cho thuộc tính HTML {@code href} (không log ra console). */
-    private static String escapeForHtmlAttribute(String url) {
-        if (url == null) {
-            return "";
-        }
-        return url.replace("&", "&amp;")
-                .replace("\"", "&quot;")
-                .replace("'", "&#39;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;");
     }
 
 }
