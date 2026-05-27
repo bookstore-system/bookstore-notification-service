@@ -1,6 +1,7 @@
 package com.notfound.bookstorenotificationservice.messaging.consumer;
 
 import com.notfound.bookstorenotificationservice.config.RabbitMQConfig;
+import com.notfound.bookstorenotificationservice.model.dto.EmailVerificationEvent;
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
 import com.notfound.bookstorenotificationservice.model.dto.PaymentEventDto;
@@ -30,5 +31,10 @@ public class NotificationConsumer {
     @RabbitListener(queues = RabbitMQConfig.USER_QUEUE_NAME, containerFactory = "rabbitListenerContainerFactory")
     public void handlePasswordResetEvent(PasswordResetOtpEvent event) {
         notificationService.sendPasswordResetOtpNotification(event);
+    }
+
+    @RabbitListener(queues = RabbitMQConfig.EMAIL_VERIFICATION_QUEUE_NAME, containerFactory = "rabbitListenerContainerFactory")
+    public void handleEmailVerificationEvent(EmailVerificationEvent event) {
+        notificationService.sendEmailVerificationNotification(event);
     }
 }

@@ -1,6 +1,7 @@
 package com.notfound.bookstorenotificationservice.messaging.consumer;
 
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
+import com.notfound.bookstorenotificationservice.model.dto.EmailVerificationEvent;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
 import com.notfound.bookstorenotificationservice.model.dto.PaymentEventDto;
 import com.notfound.bookstorenotificationservice.service.NotificationService;
@@ -58,5 +59,18 @@ class NotificationConsumerTest {
 
         verify(service).sendPasswordResetOtpNotification(dto);
     }
-}
 
+    @Test
+    void handleEmailVerificationEvent_delegatesToService() {
+        NotificationService service = mock(NotificationService.class);
+        NotificationConsumer consumer = new NotificationConsumer(service);
+
+        EmailVerificationEvent dto = new EmailVerificationEvent();
+        dto.setEmail("u@b.com");
+        dto.setVerificationUrl("http://localhost:8080/api/v1/auth/confirm-email?token=abc");
+
+        consumer.handleEmailVerificationEvent(dto);
+
+        verify(service).sendEmailVerificationNotification(dto);
+    }
+}

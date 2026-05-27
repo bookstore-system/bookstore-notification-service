@@ -2,6 +2,7 @@ package com.notfound.bookstorenotificationservice.service.impl;
 
 import com.notfound.bookstorenotificationservice.client.UserContactResolver;
 import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
+import com.notfound.bookstorenotificationservice.model.dto.EmailVerificationEvent;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
 import com.notfound.bookstorenotificationservice.service.MailDeliveryService;
 import java.util.UUID;
@@ -18,6 +19,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 class NotificationServiceImplTest {
+
+    private static final String EMAIL_VERIFICATION_SUBJECT =
+            "X\u00e1c th\u1ef1c email t\u00e0i kho\u1ea3n Nh\u00e0 S\u00e1ch C\u1ed9ng \u0110\u1ed3ng";
 
     @Test
     void sendPasswordResetOtpNotification_sendsOtpToEventEmailWithoutContactInfoLookup() {
@@ -63,6 +67,58 @@ class NotificationServiceImplTest {
         verify(mailDeliveryService).sendHtmlEmail(
                 eq("reader@example.com"),
                 eq("Ma OTP dat lai mat khau - NotFound Bookstore"),
+                any(),
+                eq((UUID) null),
+                eq((UUID) null));
+        verifyNoInteractions(userContactResolver);
+    }
+
+    @Test
+    void sendEmailVerificationNotification_sendsVerificationLinkToEventEmailWithoutContactInfoLookup() {
+        UserContactResolver userContactResolver = mock(UserContactResolver.class);
+        MailDeliveryService mailDeliveryService = mock(MailDeliveryService.class);
+        NotificationServiceImpl service = new NotificationServiceImpl(userContactResolver, mailDeliveryService);
+        EmailVerificationEvent event = new EmailVerificationEvent();
+        event.setEventId(UUID.randomUUID());
+        event.setEmail("reader@example.com");
+        event.setDisplayName("Reader");
+        event.setVerificationUrl("http://localhost:8080/api/v1/auth/confirm-email?token=abc123");
+        event.setExpiresInMinutes(1440);
+        ArgumentCaptor<String> htmlCaptor = ArgumentCaptor.forClass(String.class);
+
+        service.sendEmailVerificationNotification(event);
+
+        verify(mailDeliveryService).sendHtmlEmail(
+                eq("reader@example.com"),
+                eq(EMAIL_VERIFICATION_SUBJECT),
+                htmlCaptor.capture(),
+                eq((UUID) null),
+                eq((UUID) null));
+        assertThat(htmlCaptor.getValue())
+                .contains("http://localhost:8080/api/v1/auth/confirm-email?token=abc123")
+                .contains("1440")
+                .contains("24");
+        verifyNoInteractions(userContactResolver);
+    }
+
+    @Test
+    void sendEmailVerificationNotification_deliveryFailureDoesNotEscapeRabbitListener() {
+        UserContactResolver userContactResolver = mock(UserContactResolver.class);
+        MailDeliveryService mailDeliveryService = mock(MailDeliveryService.class);
+        NotificationServiceImpl service = new NotificationServiceImpl(userContactResolver, mailDeliveryService);
+        EmailVerificationEvent event = new EmailVerificationEvent();
+        event.setEventId(UUID.randomUUID());
+        event.setEmail("reader@example.com");
+        event.setVerificationUrl("http://localhost:8080/api/v1/auth/confirm-email?token=abc123");
+        doThrow(new NotificationDeliveryException("smtp down"))
+                .when(mailDeliveryService)
+                .sendHtmlEmail(any(), any(), any(), any(), any());
+
+        assertThatCode(() -> service.sendEmailVerificationNotification(event)).doesNotThrowAnyException();
+
+        verify(mailDeliveryService).sendHtmlEmail(
+                eq("reader@example.com"),
+                eq(EMAIL_VERIFICATION_SUBJECT),
                 any(),
                 eq((UUID) null),
                 eq((UUID) null));

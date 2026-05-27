@@ -398,6 +398,39 @@ public final class BookstoreNotificationHtmlBuilder {
         return String.format(Locale.US, "%.2f%%", discountValue);
     }
 
+    public static String buildEmailVerificationBody(
+            String displayName,
+            String verificationUrl,
+            int expiresInMinutes) {
+        String name = displayName != null && !displayName.isBlank() ? displayName : "Quý khách";
+        String safeName = escapeHtmlUtf8(name);
+        String safeUrl = escapeHtmlUtf8(verificationUrl != null ? verificationUrl : "");
+        String expiryText = expiresInMinutes > 0
+                ? "Liên kết xác thực có hiệu lực trong <strong style=\"color:#1c1917;\">"
+                    + escapeHtmlUtf8(String.valueOf(expiresInMinutes))
+                    + "</strong> phút"
+                    + (expiresInMinutes == 1440 ? " (24 giờ)." : ".")
+                : "Liên kết xác thực sẽ hết hạn sớm.";
+        return """
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;letter-spacing:0;">Xin chào <strong style="color:#1c1917;">__NAME__</strong>,</p>
+                <p style="margin:0 0 14px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#44403c;letter-spacing:0;">Bạn vừa đăng ký hoặc yêu cầu xác thực email cho tài khoản Nhà Sách Cộng Đồng.</p>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:separate;border-spacing:0;margin:18px 0 18px 0;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;font-family:__FONT_UI__;">
+                  <tr>
+                    <td align="center" style="padding:20px 18px 18px 18px;font-family:__FONT_UI__;">
+                      <a href="__URL__" target="_blank" rel="noopener" style="display:inline-block;background:#c2410c;color:#ffffff;text-decoration:none;font-family:__FONT_UI__;font-size:15px;line-height:1.2;font-weight:800;padding:13px 18px;border-radius:6px;">Xác thực email</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:14px;line-height:1.65;color:#57534e;letter-spacing:0;">__EXPIRY__</p>
+                <p style="margin:0 0 8px 0;font-family:__FONT_UI__;font-size:13px;line-height:1.65;color:#78716c;letter-spacing:0;">Nếu nút không hoạt động, hãy mở liên kết này trong trình duyệt:</p>
+                <p style="margin:0;word-break:break-word;font-family:__FONT_UI__;font-size:13px;line-height:1.65;color:#9a3412;letter-spacing:0;"><a href="__URL__" target="_blank" rel="noopener" style="color:#9a3412;text-decoration:underline;">__URL__</a></p>
+                """
+                .replace("__FONT_UI__", FONT_UI)
+                .replace("__NAME__", safeName)
+                .replace("__URL__", safeUrl)
+                .replace("__EXPIRY__", expiryText);
+    }
+
     public static String buildPasswordResetOtpBody(String displayName, String otp, int expiresInMinutes) {
         String name = displayName != null && !displayName.isBlank() ? displayName : "Quý khách";
         String safeName = escapeHtmlUtf8(name);

@@ -5,6 +5,7 @@ import com.notfound.bookstorenotificationservice.client.UserContactResolver;
 import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
 import com.notfound.bookstorenotificationservice.messaging.SagaEventTypes;
 import com.notfound.bookstorenotificationservice.model.dto.CheckoutNotificationPayload;
+import com.notfound.bookstorenotificationservice.model.dto.EmailVerificationEvent;
 import com.notfound.bookstorenotificationservice.model.dto.NotificationRequestDto;
 import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
@@ -22,6 +23,8 @@ import org.springframework.util.StringUtils;
 public class NotificationServiceImpl implements NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
+    private static final String EMAIL_VERIFICATION_SUBJECT =
+            "X\u00e1c th\u1ef1c email t\u00e0i kho\u1ea3n Nh\u00e0 S\u00e1ch C\u1ed9ng \u0110\u1ed3ng";
     private final UserContactResolver userContactResolver;
     private final MailDeliveryService mailDeliveryService;
 
@@ -132,6 +135,59 @@ public class NotificationServiceImpl implements NotificationService {
         } catch (RuntimeException e) {
             logger.warn(
                     "Skip password-reset OTP email after unexpected delivery failure. eventId={}, email={}",
+                    event.getEventId(),
+                    email,
+                    e);
+        }
+    }
+
+    @Override
+    public void sendEmailVerificationNotification(EmailVerificationEvent event) {
+        if (event == null) {
+            logger.warn("Skip email verification email: event is null.");
+            return;
+        }
+        logger.info(
+                "Processing email verification notification. eventId={}, userId={}",
+                event.getEventId(),
+                event.getUserId());
+        if (!StringUtils.hasText(event.getEmail())) {
+            logger.warn("Skip email verification email: missing email. eventId={}", event.getEventId());
+            return;
+        }
+
+        if (!StringUtils.hasText(event.getVerificationUrl())) {
+            logger.warn("Skip email verification email: missing verificationUrl. eventId={}", event.getEventId());
+            return;
+        }
+
+        String email = event.getEmail().trim();
+        String verificationUrl = event.getVerificationUrl().trim();
+        int expires = event.getExpiresInMinutes() != null && event.getExpiresInMinutes() > 0
+                ? event.getExpiresInMinutes()
+                : 1440;
+        String inner = BookstoreNotificationHtmlBuilder.buildEmailVerificationBody(
+                event.getDisplayName(), verificationUrl, expires);
+        String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(EMAIL_VERIFICATION_SUBJECT, inner);
+
+        logger.info(
+                "Email verification email prepared for {} (HTML {} chars). expiresInMinutes={}",
+                email,
+                html.length(),
+                expires);
+        logger.debug("Bookstore email verification notification HTML:\n{}", html);
+
+        try {
+            mailDeliveryService.sendHtmlEmail(email, EMAIL_VERIFICATION_SUBJECT, html, null, null);
+        } catch (NotificationDeliveryException e) {
+            logger.warn(
+                    "Skip email verification email after delivery failure. eventId={}, email={}, reason={}",
+                    event.getEventId(),
+                    email,
+                    e.getMessage());
+        } catch (RuntimeException e) {
+            logger.warn(
+                    "Skip email verification email after unexpected delivery failure. eventId={}, email={}",
                     event.getEventId(),
                     email,
                     e);
