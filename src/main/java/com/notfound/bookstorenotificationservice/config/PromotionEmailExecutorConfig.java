@@ -24,6 +24,20 @@ public class PromotionEmailExecutorConfig {
         executor.setMaxPoolSize(Math.max(executor.getCorePoolSize(), maxPoolSize));
         executor.setQueueCapacity(Math.max(1, queueCapacity));
         executor.setThreadNamePrefix("promotion-email-");
+        
+        // Cấu hình in ra log thông số của executor khi khởi tạo hoặc sử dụng
+        executor.setTaskDecorator(runnable -> () -> {
+            System.out.println(String.format("[Executor Stats] Active: %d, PoolSize: %d, CorePoolSize: %d, MaxPoolSize: %d, QueueSize: %d/%d",
+                executor.getActiveCount(),
+                executor.getPoolSize(),
+                executor.getCorePoolSize(),
+                executor.getMaxPoolSize(),
+                executor.getThreadPoolExecutor() != null ? executor.getThreadPoolExecutor().getQueue().size() : 0,
+                queueCapacity
+            ));
+            runnable.run();
+        });
+        
         executor.initialize();
         return executor;
     }
