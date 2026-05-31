@@ -1,7 +1,9 @@
 package com.notfound.bookstorenotificationservice.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -10,8 +12,13 @@ public class OrderEventDto {
     private UUID userId;
     private String customerEmail;
     private String customerName;
+    @JsonAlias({"totalAmount", "total"})
     private BigDecimal totalPrice;
     private String status;
+    private String type;
+    private String paymentMethod;
+    @JsonAlias({"occurredAt", "orderDate"})
+    private LocalDateTime createdAt;
 
     // Constructors, Getters and Setters
 
@@ -73,6 +80,30 @@ public class OrderEventDto {
         this.status = status;
     }
 
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
     @Override
     public String toString() {
         return "OrderEventDto{" +
@@ -82,6 +113,9 @@ public class OrderEventDto {
                 ", customerName='" + customerName + '\'' +
                 ", totalPrice=" + totalPrice +
                 ", status='" + status + '\'' +
+                ", type='" + type + '\'' +
+                ", paymentMethod='" + paymentMethod + '\'' +
+                ", createdAt=" + createdAt +
                 '}';
     }
 }
