@@ -3,8 +3,11 @@ package com.notfound.bookstorenotificationservice.service.impl;
 import com.notfound.bookstorenotificationservice.client.UserContactResolver;
 import com.notfound.bookstorenotificationservice.exception.NotificationDeliveryException;
 import com.notfound.bookstorenotificationservice.model.dto.EmailVerificationEvent;
+import com.notfound.bookstorenotificationservice.model.dto.OrderEventDto;
 import com.notfound.bookstorenotificationservice.model.dto.PasswordResetOtpEvent;
 import com.notfound.bookstorenotificationservice.service.MailDeliveryService;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -22,6 +25,37 @@ class NotificationServiceImplTest {
 
     private static final String EMAIL_VERIFICATION_SUBJECT =
             "X\u00e1c th\u1ef1c email t\u00e0i kho\u1ea3n Nh\u00e0 S\u00e1ch C\u1ed9ng \u0110\u1ed3ng";
+
+    @Test
+    void sendOrderNotification_usesTypeAndOptionalOrderFieldsWhenStatusIsMissing() {
+        UserContactResolver userContactResolver = mock(UserContactResolver.class);
+        MailDeliveryService mailDeliveryService = mock(MailDeliveryService.class);
+        NotificationServiceImpl service = new NotificationServiceImpl(userContactResolver, mailDeliveryService);
+        UUID orderId = UUID.randomUUID();
+        OrderEventDto event = new OrderEventDto();
+        event.setOrderId(orderId);
+        event.setCustomerEmail("reader@example.com");
+        event.setType("order.created");
+        event.setTotalPrice(new BigDecimal("150000"));
+        event.setPaymentMethod("COD");
+        event.setCreatedAt(LocalDateTime.of(2026, 5, 31, 22, 0));
+        ArgumentCaptor<String> htmlCaptor = ArgumentCaptor.forClass(String.class);
+
+        service.sendOrderNotification(event);
+
+        verify(mailDeliveryService).sendHtmlEmail(
+                eq("reader@example.com"),
+                eq("Cập nhật đơn hàng #" + orderId),
+                htmlCaptor.capture(),
+                eq((UUID) null),
+                eq(orderId));
+        assertThat(htmlCaptor.getValue())
+                .contains("\u0110\u00e3 t\u1ea1o")
+                .contains("150000 VND")
+                .contains("COD")
+                .contains("31/05/2026 22:00");
+        verifyNoInteractions(userContactResolver);
+    }
 
     @Test
     void sendPasswordResetOtpNotification_sendsOtpToEventEmailWithoutContactInfoLookup() {

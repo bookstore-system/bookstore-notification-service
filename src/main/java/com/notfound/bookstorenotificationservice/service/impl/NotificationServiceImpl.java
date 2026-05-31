@@ -13,6 +13,7 @@ import com.notfound.bookstorenotificationservice.model.dto.PaymentEventDto;
 import com.notfound.bookstorenotificationservice.service.MailDeliveryService;
 import com.notfound.bookstorenotificationservice.service.NotificationService;
 import com.notfound.bookstorenotificationservice.util.BookstoreNotificationHtmlBuilder;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ import org.springframework.util.StringUtils;
 public class NotificationServiceImpl implements NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
+    private static final DateTimeFormatter ORDER_TIME_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final String EMAIL_VERIFICATION_SUBJECT =
             "X\u00e1c th\u1ef1c email t\u00e0i kho\u1ea3n Nh\u00e0 S\u00e1ch C\u1ed9ng \u0110\u1ed3ng";
     private final UserContactResolver userContactResolver;
@@ -43,8 +45,19 @@ public class NotificationServiceImpl implements NotificationService {
 
         String totalStr = orderEvent.getTotalPrice() != null ? orderEvent.getTotalPrice().toPlainString() : null;
         String orderIdStr = orderEvent.getOrderId() != null ? orderEvent.getOrderId().toString() : null;
+        String status = StringUtils.hasText(orderEvent.getStatus())
+                ? orderEvent.getStatus()
+                : statusFromOrderEventType(orderEvent.getType());
+        String createdAt = orderEvent.getCreatedAt() != null
+                ? orderEvent.getCreatedAt().format(ORDER_TIME_FORMATTER)
+                : null;
         String inner = BookstoreNotificationHtmlBuilder.buildOrderNotificationBody(
-                customerName, orderIdStr, orderEvent.getStatus(), totalStr);
+                customerName,
+                orderIdStr,
+                status,
+                totalStr,
+                orderEvent.getPaymentMethod(),
+                createdAt);
         String subject = "Cập nhật đơn hàng" + (orderIdStr != null ? " #" + orderIdStr : "");
         String html = BookstoreNotificationHtmlBuilder.wrapNotificationEmail(subject, inner);
 
@@ -53,8 +66,21 @@ public class NotificationServiceImpl implements NotificationService {
                 html.length(),
                 customerName,
                 orderEvent.getOrderId(),
-                orderEvent.getStatus());
+                status);
         mailDeliveryService.sendHtmlEmail(email, subject, html, null, orderEvent.getOrderId());
+    }
+
+    private static String statusFromOrderEventType(String type) {
+        if (!StringUtils.hasText(type)) {
+            return null;
+        }
+        return switch (type.trim()) {
+            case "order.created" -> "Đã tạo";
+            case "order.confirmed" -> "Đã xác nhận";
+            case "order.cancelled" -> "Đã hủy";
+            case "order.failed" -> "Thất bại";
+            default -> type;
+        };
     }
 
     @Override
