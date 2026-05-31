@@ -99,14 +99,21 @@ public final class BookstoreNotificationHtmlBuilder {
             String customerName,
             String orderId,
             String status,
-            String totalPrice) {
+            String totalPrice,
+            String paymentMethod,
+            String createdAt) {
         String name = customerName != null && !customerName.isBlank() ? customerName : "Quý khách";
         String safeName = escapeHtmlUtf8(name);
         String safeOrder = escapeHtmlUtf8(orderId != null ? orderId : "—");
         String safeStatus = escapeHtmlUtf8(status != null ? status : "—");
-        String priceLine = totalPrice != null && !totalPrice.isBlank()
-                ? "<p style=\"margin:14px 0 0 0;font-family:" + FONT_UI + ";font-size:15px;color:#292524;\"><strong style=\"color:#1c1917;\">Tổng tiền:</strong> "
-                        + escapeHtmlUtf8(totalPrice) + "</p>"
+        String priceRow = totalPrice != null && !totalPrice.isBlank()
+                ? row("Tổng tiền", escapeHtmlUtf8(totalPrice) + " VND")
+                : "";
+        String methodRow = paymentMethod != null && !paymentMethod.isBlank()
+                ? row("Phương thức", escapeHtmlUtf8(paymentMethod))
+                : "";
+        String createdAtRow = createdAt != null && !createdAt.isBlank()
+                ? row("Thời gian", escapeHtmlUtf8(createdAt))
                 : "";
         return """
                 <p style="margin:0 0 12px 0;font-family:__FONT_UI__;font-size:16px;line-height:1.7;color:#292524;letter-spacing:0;">Xin chào <strong style="color:#1c1917;">__NAME__</strong>,</p>
@@ -120,15 +127,19 @@ public final class BookstoreNotificationHtmlBuilder {
                     <td style="padding:14px 16px;border-top:1px solid #e7e5e4;font-size:13px;font-weight:700;color:#57534e;font-family:__FONT_UI__;">Trạng thái</td>
                     <td style="padding:14px 16px;border-top:1px solid #e7e5e4;font-size:15px;color:#c2410c;text-align:right;font-weight:800;font-family:__FONT_UI__;">__STATUS__</td>
                   </tr>
+                  __PRICE_ROW__
+                  __METHOD_ROW__
+                  __CREATED_AT_ROW__
                 </table>
-                __PRICE__
                 """
                 .replace("__FONT_UI__", FONT_UI)
                 .replace("__FONT_MONO__", FONT_MONO)
                 .replace("__NAME__", safeName)
                 .replace("__ORDER__", safeOrder)
                 .replace("__STATUS__", safeStatus)
-                .replace("__PRICE__", priceLine);
+                .replace("__PRICE_ROW__", priceRow)
+                .replace("__METHOD_ROW__", methodRow)
+                .replace("__CREATED_AT_ROW__", createdAtRow);
     }
 
     public static String buildPaymentNotificationBody(
